@@ -387,6 +387,18 @@
 
 </div><!-- .main -->
 
+<!-- Monthly reminder popup -->
+<div id="monthly-reminder" style="display:none;position:fixed;bottom:24px;right:24px;z-index:1002;background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:16px 20px;box-shadow:0 4px 20px rgba(0,0,0,0.15);max-width:320px;font-size:13px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:4px">📅 Monthly Purchase Due?</div>
+      <div style="color:var(--muted);line-height:1.5">It's past the 8th — a new SAP purchase may have been made this month. Check and add your latest lot if needed.</div>
+      <button onclick="document.getElementById('monthly-reminder').style.display='none'" style="margin-top:10px;background:var(--accent);color:#fff;border:none;border-radius:5px;padding:5px 14px;cursor:pointer;font-size:12px;font-weight:600">Got it</button>
+    </div>
+    <button onclick="document.getElementById('monthly-reminder').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);flex-shrink:0">✕</button>
+  </div>
+</div>
+
 <!-- Help Modal -->
 <div id="help-modal" onclick="if(event.target===this)closeHelp()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1001;align-items:center;justify-content:center">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(720px,95vw);max-height:90vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
@@ -644,6 +656,7 @@ document.getElementById('csvFile').addEventListener('change', function(e) {
     status(`Loaded ${rows.length} rows from ${file.name} — saved to browser storage.`);
     histPage = 0;
     renderAll();
+    checkMonthlyReminder();
   };
   reader.readAsText(file);
 });
@@ -1830,6 +1843,16 @@ function closePnLChart() {
   document.querySelector('#pnl-modal h2').textContent = 'Overall Unrealised P&L % by Acquisition Date';
 }
 
+// ─── Monthly Reminder ────────────────────────────────────────────────────────
+function checkMonthlyReminder() {
+  const now = new Date();
+  if (now.getDate() <= 8) return;
+  const thisYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const hasThisMonth = rows.some(r => isHeld(r) && r['ACQUISITION DATE'].slice(0, 7) === thisYM);
+  if (hasThisMonth) return;
+  document.getElementById('monthly-reminder').style.display = 'block';
+}
+
 // ─── Help Modal ──────────────────────────────────────────────────────────────
 function openHelp() {
   document.getElementById('help-modal').style.display = 'flex';
@@ -1857,6 +1880,7 @@ function showHelpTab(tab) {
     renderAll();
     status('Loaded ' + rows.length + ' rows from browser storage. Fetching live prices…');
     fetchLivePrices();
+    checkMonthlyReminder();
   } else {
     // Check if localStorage is even accessible
     try {
