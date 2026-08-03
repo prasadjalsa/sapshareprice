@@ -899,7 +899,7 @@ async function fetchLivePrices() {
 
   // SAP price — try Cloudflare Worker first (for GitHub Pages), fall back to local server.py
   // Set your deployed Worker URL here after deploying worker.js to Cloudflare.
-  const SAP_WORKER_URL = 'https://sap-price.prasadjalsa.workers.dev/api/sap-price';
+  const SAP_WORKER_URL = 'https://sapshareprice.prasad-jalsa.workers.dev/api/sap-price';
   const SAP_LOCAL_URL  = '/api/sap-price';
 
   async function fetchSapPrice(url) {
