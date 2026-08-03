@@ -109,6 +109,7 @@
     <h1>SAP Share Portfolio</h1>
     <div class="tagline">Profit &amp; Loss Dashboard &mdash; prices in INR</div>
   </div>
+  <button onclick="openHelp()" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:13px;font-weight:600">? Help</button>
 </header>
 
 <div class="main">
@@ -389,6 +390,120 @@
   </div>
 
 </div><!-- .main -->
+
+<!-- Help Modal -->
+<div id="help-modal" onclick="if(event.target===this)closeHelp()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1001;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(720px,95vw);max-height:90vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0">
+      <h2 style="font-size:17px;font-weight:700">SAP Share Portfolio — Help</h2>
+      <button onclick="closeHelp()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;padding:12px 24px 0;border-bottom:1px solid var(--border)">
+      <button id="help-btn-start"    onclick="showHelpTab('start')"    style="background:none;border:none;border-bottom:2px solid var(--accent);padding:8px 16px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text)">Getting Started</button>
+      <button id="help-btn-features" onclick="showHelpTab('features')" style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:400;color:var(--text)">Features</button>
+      <button id="help-btn-faq"      onclick="showHelpTab('faq')"      style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:400;color:var(--text)">FAQ</button>
+    </div>
+    <!-- Tab: Getting Started -->
+    <div id="help-tab-start" style="padding:24px;line-height:1.8;font-size:14px">
+      <p style="color:var(--muted);margin-bottom:20px">Welcome to SAP Share Portfolio — your personal tracker for SAP share purchases and P&amp;L in INR.</p>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">1</span>
+          <div><strong>Load your CSV</strong><br><span style="color:var(--muted)">Click <b>Load CSV file</b> in the top bar and select your <code>SAP Share overall.csv</code>. Data saves to your browser automatically — no need to reload next time.</span></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">2</span>
+          <div><strong>Live prices auto-fetch</strong><br><span style="color:var(--muted)">SAP EUR price and EUR→INR rate load automatically. Click <b>⟳ Refresh Prices</b> to update. Enable <b>Auto (15 min)</b> for hands-free refresh.</span></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">3</span>
+          <div><strong>Review your portfolio</strong><br><span style="color:var(--muted)">The tiles at the top show your holdings, current value, unrealised P&amp;L, break-even price, and realised gains. Click the chart tiles to see detailed graphs.</span></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">4</span>
+          <div><strong>Add new purchases</strong><br><span style="color:var(--muted)">Use <b>Add New Purchase / Award Row</b> to record new lots. The exchange rate toggle lets you enter EUR→INR or INR→EUR.</span></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">5</span>
+          <div><strong>Log a sell</strong><br><span style="color:var(--muted)">Use <b>Log Sell</b> to record a sale. Lots are consumed oldest-first (FIFO). Capital gain is calculated automatically.</span></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">6</span>
+          <div><strong>Backup your data</strong><br><span style="color:var(--muted)">Click <b>Export CSV</b> regularly to save a timestamped backup. Your data lives in this browser — clearing browser data will erase it.</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- Tab: Features -->
+    <div id="help-tab-features" style="display:none;padding:24px;font-size:14px;line-height:1.8">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Live Prices</div>
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
+            <li>⟳ Auto-fetches SAP.DE price (Frankfurt/XETRA in EUR)</li>
+            <li>⟳ Sources: Google Finance → Yahoo q1 → Yahoo q2</li>
+            <li>⟳ 5-minute cache — avoids rate limits</li>
+            <li>⟳ EUR→INR rate from frankfurter.dev</li>
+            <li>⟳ Auto-refresh every 15 minutes (optional)</li>
+          </ul>
+        </div>
+        <div>
+          <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">KPI Tiles</div>
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
+            <li>📊 Shares Held (Own SAP + Move SAP breakdown)</li>
+            <li>📊 Total Cost Basis &amp; avg cost/share</li>
+            <li>📊 Current Value at live price</li>
+            <li>📊 Unrealised P&amp;L + cumulative chart</li>
+            <li>📊 P&amp;L % by Date + per-lot chart</li>
+            <li>📊 Break-even EUR price &amp; exchange rate</li>
+            <li>📊 Realised Capital Gain &amp; Total P&amp;L</li>
+          </ul>
+        </div>
+        <div>
+          <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Held Shares Table</div>
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
+            <li>🔍 Filter by Plan Type &amp; Status (Profit/Loss/Hold)</li>
+            <li>↕ Sort by Acquisition Date</li>
+            <li>📄 Pagination (10/20/40/50 per page)</li>
+            <li>✎ Inline edit: date, plan type, price, rate, qty</li>
+            <li>🗑 Delete rows in edit mode</li>
+          </ul>
+        </div>
+        <div>
+          <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Data Management</div>
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
+            <li>📥 Load CSV — first-time data import</li>
+            <li>🔀 Merge CSV — add new rows, skip duplicates</li>
+            <li>📤 Export CSV — timestamped backup</li>
+            <li>🗑 Clear Storage — wipe browser data</li>
+            <li>⬆ Share App — copies GitHub link</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <!-- Tab: FAQ -->
+    <div id="help-tab-faq" style="display:none;padding:24px;font-size:14px">
+      <div style="display:flex;flex-direction:column;gap:0">
+        ${[
+          ['Where is my data stored?', 'Your portfolio data is stored only in this browser\'s localStorage. Nothing is sent to any server. Clearing your browser data will erase it — export a CSV backup regularly.'],
+          ['Why is SAP price not loading?', 'The price is cached for 5 minutes. Wait for the countdown on the Refresh button to finish, then click it again. If it still fails, Google/Yahoo may be rate-limiting — try again in a few minutes.'],
+          ['My data disappeared after refresh — why?', 'Clearing browser history/cache wipes localStorage. Always export a CSV backup before clearing. You can reload from the CSV using Load CSV file.'],
+          ['What is FIFO?', 'First In, First Out — when you log a sell, the oldest lots are consumed first. This matches the standard accounting method for share sales.'],
+          ['What is Break-even?', 'The SAP EUR price (at current exchange rate) at which your total portfolio would be exactly at zero P&L. If SAP trades above this, you\'re in profit.'],
+          ['What is STCG / LTCG?', 'Short Term Capital Gain (held < 1 year) and Long Term Capital Gain (held ≥ 1 year). These come from your sell transaction records.'],
+          ['Can I use this on mobile?', 'Yes — the layout is responsive and works on mobile browsers.'],
+          ['How do I share this app?', 'Click ⬆ Share App — it copies the GitHub link to your clipboard. Recipients visit the link to access their own fresh instance with no data.'],
+          ['Can I edit mistakes in my data?', 'Yes — click ✎ Edit in the Currently Held Shares or Transaction History section headers to enter edit mode. Cells become inputs, click ✔ Save All when done.'],
+        ].map(([q, a]) => `
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">${q}</div>
+          <div style="color:var(--muted)">${a}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- P&L Chart Modal -->
 <div id="pnl-modal" onclick="if(event.target===this)closePnLChart()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center">
@@ -1716,6 +1831,24 @@ function closePnLChart() {
   document.querySelector('#pnl-modal h2').textContent = 'Overall Unrealised P&L % by Acquisition Date';
 }
 
+// ─── Help Modal ──────────────────────────────────────────────────────────────
+function openHelp() {
+  document.getElementById('help-modal').style.display = 'flex';
+  showHelpTab('start');
+}
+
+function closeHelp() {
+  document.getElementById('help-modal').style.display = 'none';
+}
+
+function showHelpTab(tab) {
+  ['start', 'features', 'faq'].forEach(t => {
+    document.getElementById('help-tab-' + t).style.display = t === tab ? 'block' : 'none';
+    document.getElementById('help-btn-' + t).style.fontWeight = t === tab ? '700' : '400';
+    document.getElementById('help-btn-' + t).style.borderBottom = t === tab ? '2px solid var(--accent)' : '2px solid transparent';
+  });
+}
+
 // ─── Init ────────────────────────────────────────────────────────────────────
 (function() {
   const origin = window.location.href.replace(/[^/]*$/, '');
@@ -1734,6 +1867,11 @@ function closePnLChart() {
     } catch(e) {
       status('localStorage unavailable in this browser/mode (' + e.message + '). Load your CSV each time, or use a local server.');
     }
+  }
+  // Auto-show help on first visit
+  if (!localStorage.getItem('help_seen')) {
+    localStorage.setItem('help_seen', '1');
+    openHelp();
   }
 })();
 </script>
