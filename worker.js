@@ -42,6 +42,22 @@ async function handleSapPrice(request) {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
   }
+
+  const CACHE_TTL = 300; // 5 minutes
+  const cache = caches.default;
+  const cacheKey = new Request("https://sap-price-cache/api/sap-price");
+
+  // Return cached price if still fresh
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const data = await cached.json();
+    const age = Math.round((Date.now() - data.fetched_at) / 1000);
+    return new Response(JSON.stringify({ ...data, cached: true, age_seconds: age }), {
+      status: 200, headers: CORS,
+    });
+  }
+
+  // Fetch fresh from sources
   const sources = [
     fetchFromGoogle,
     () => fetchFromYahoo("query1"),
@@ -51,9 +67,12 @@ async function handleSapPrice(request) {
   for (const fn of sources) {
     try {
       const { price, source } = await fn();
-      return new Response(JSON.stringify({ price, source, cached: false, age_seconds: 0 }), {
-        status: 200, headers: CORS,
-      });
+      const payload = { price, source, cached: false, age_seconds: 0, fetched_at: Date.now() };
+      // Store in Cloudflare edge cache for 5 minutes
+      await cache.put(cacheKey, new Response(JSON.stringify(payload), {
+        headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${CACHE_TTL}` },
+      }));
+      return new Response(JSON.stringify(payload), { status: 200, headers: CORS });
     } catch (e) {
       errors.push(e.message);
     }
