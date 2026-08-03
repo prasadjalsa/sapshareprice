@@ -1,10 +1,8 @@
 /**
- * Cloudflare Worker — SAP Share Price Proxy
- * Fetches SAP.DE (Frankfurt/XETRA) price from Google Finance / Yahoo Finance.
+ * Cloudflare Worker — SAP Share Portfolio Calculator
+ * - Serves index.html at /
+ * - Proxies SAP price at /api/sap-price
  * Stateless — no data stored, no logs retained.
- *
- * Deploy at: https://dash.cloudflare.com → Workers & Pages → Create Worker
- * Paste this file, deploy, then update SAP_WORKER_URL in index.html.
  */
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
@@ -40,40 +38,47 @@ async function fetchFromYahoo(host = "query1") {
   return { price: parseFloat(price), source: `Yahoo (${host})` };
 }
 
-export default {
-  async fetch(request) {
-    // Handle CORS preflight
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: CORS });
-    }
-
-    const url = new URL(request.url);
-    if (url.pathname !== "/api/sap-price") {
-      return new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404, headers: CORS,
+async function handleSapPrice(request) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS });
+  }
+  const sources = [
+    fetchFromGoogle,
+    () => fetchFromYahoo("query1"),
+    () => fetchFromYahoo("query2"),
+  ];
+  const errors = [];
+  for (const fn of sources) {
+    try {
+      const { price, source } = await fn();
+      return new Response(JSON.stringify({ price, source, cached: false, age_seconds: 0 }), {
+        status: 200, headers: CORS,
       });
+    } catch (e) {
+      errors.push(e.message);
+    }
+  }
+  return new Response(JSON.stringify({ error: errors.join(" | ") }), {
+    status: 500, headers: CORS,
+  });
+}
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    // SAP price API
+    if (url.pathname === "/api/sap-price") {
+      return handleSapPrice(request);
     }
 
-    const sources = [
-      fetchFromGoogle,
-      () => fetchFromYahoo("query1"),
-      () => fetchFromYahoo("query2"),
-    ];
-
-    const errors = [];
-    for (const fn of sources) {
-      try {
-        const { price, source } = await fn();
-        return new Response(JSON.stringify({ price, source, cached: false, age_seconds: 0 }), {
-          status: 200, headers: CORS,
-        });
-      } catch (e) {
-        errors.push(e.message);
-      }
+    // Serve index.html from the KV binding or Assets
+    // Cloudflare Workers Sites / Assets: serve static files bound as ASSETS
+    if (env.ASSETS) {
+      return env.ASSETS.fetch(request);
     }
 
-    return new Response(JSON.stringify({ error: errors.join(" | ") }), {
-      status: 500, headers: CORS,
-    });
+    // Fallback — redirect to GitHub repo
+    return Response.redirect("https://github.com/prasadjalsa/sapshareprice", 302);
   },
 };
