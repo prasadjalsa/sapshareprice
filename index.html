@@ -109,14 +109,6 @@
     <h1>SAP Share Portfolio</h1>
     <div class="tagline">Profit &amp; Loss Dashboard &mdash; prices in INR</div>
   </div>
-  <div style="margin-left:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;line-height:1.7">
-    <div style="color:var(--muted);margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">Start server (run once in terminal)</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <code id="server-cmd" style="color:#1a6fd4;font-family:monospace;font-size:12px">cd "&lt;Folder where files are saved&gt;" &amp;&amp; python3 server.py</code>
-      <button onclick="copyCmd()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px" title="Copy to clipboard">Copy</button>
-    </div>
-    <div style="color:var(--muted);margin-top:4px;font-size:11px">Then open &rarr; <a href="http://localhost:8080" target="_blank" style="color:var(--accent)">http://localhost:8080</a></div>
-  </div>
 </header>
 
 <div class="main">
@@ -768,25 +760,7 @@ function fmtEur(n) { return '€' + fmt(n); }
 function fmtInr(n) { return '₹' + fmt(n); }
 function status(msg) { document.getElementById('status-bar').textContent = msg; }
 
-function copyCmd() {
-  const cmd = document.getElementById('server-cmd').textContent;
-  navigator.clipboard.writeText(cmd).then(() => {
-    const btn = event.target;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy', 1500);
-  });
-}
 
-async function fetchServerDir() {
-  try {
-    const res = await fetch('/api/info');
-    const json = await res.json();
-    if (json.dir) {
-      const cmd = `cd "${json.dir}" && python3 server.py`;
-      document.getElementById('server-cmd').textContent = cmd;
-    }
-  } catch(_) {}
-}
 
 // ─── Share App ────────────────────────────────────────────────────────────────
 function shareApp() {
@@ -1744,7 +1718,6 @@ function closePnLChart() {
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 (function() {
-  fetchServerDir();
   const origin = window.location.href.replace(/[^/]*$/, '');
   const saved = loadFromStorage();
   if (saved && saved.length > 0) {
