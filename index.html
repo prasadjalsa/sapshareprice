@@ -897,10 +897,25 @@ async function fetchLivePrices() {
 
   let sapPrice = null, eurInr = null, errors = [], ageSeconds = 0;
 
-  // SAP price via local server proxy (handles User-Agent + caching to avoid Yahoo 429)
+  // SAP price — try Cloudflare Worker first (for GitHub Pages), fall back to local server.py
+  // Set your deployed Worker URL here after deploying worker.js to Cloudflare.
+  const SAP_WORKER_URL = 'https://sap-price.prasadjalsa.workers.dev/api/sap-price';
+  const SAP_LOCAL_URL  = '/api/sap-price';
+
+  async function fetchSapPrice(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  }
+
   try {
-    const res = await fetch('/api/sap-price');
-    const json = await res.json();
+    let json = null;
+    try {
+      json = await fetchSapPrice(SAP_WORKER_URL);
+    } catch (_) {
+      // Worker not reachable (local dev) — try local server
+      json = await fetchSapPrice(SAP_LOCAL_URL);
+    }
     if (json.price) {
       sapPrice = json.price;
       ageSeconds = json.age_seconds || 0;
@@ -909,7 +924,7 @@ async function fetchLivePrices() {
     } else {
       errors.push('SAP price unavailable: ' + (json.error || 'unknown'));
     }
-  } catch (e) { errors.push('SAP price fetch failed — is server.py running?'); }
+  } catch (e) { errors.push('SAP price fetch failed — deploy worker.js or run server.py'); }
 
   try {
     const res = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR');

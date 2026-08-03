@@ -4,6 +4,21 @@ A local web app to track your SAP share purchases, calculate profit/loss
 in INR, and fetch live SAP share prices (Frankfurt/XETRA in EUR) with
 EUR to INR conversion.
 
+GitHub : https://github.com/prasadjalsa/sapshareprice
+Hosted : https://prasadjalsa.github.io/sapshareprice
+
+
+TWO WAYS TO USE
+---------------
+A) HOSTED (no install needed)
+   Open https://prasadjalsa.github.io/sapshareprice in your browser.
+   Live SAP price is fetched via Cloudflare Worker automatically.
+   Your data stays in your browser's localStorage only.
+
+B) LOCAL (full offline support)
+   Clone or download the repo, run server.py, open http://localhost:8080.
+   See SETUP & RUNNING section below.
+
 
 REQUIREMENTS
 ------------
