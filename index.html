@@ -485,21 +485,42 @@
     <!-- Tab: FAQ -->
     <div id="help-tab-faq" style="display:none;padding:24px;font-size:14px">
       <div style="display:flex;flex-direction:column;gap:0">
-        ${[
-          ['Where is my data stored?', 'Your portfolio data is stored only in this browser\'s localStorage. Nothing is sent to any server. Clearing your browser data will erase it — export a CSV backup regularly.'],
-          ['Why is SAP price not loading?', 'The price is cached for 5 minutes. Wait for the countdown on the Refresh button to finish, then click it again. If it still fails, Google/Yahoo may be rate-limiting — try again in a few minutes.'],
-          ['My data disappeared after refresh — why?', 'Clearing browser history/cache wipes localStorage. Always export a CSV backup before clearing. You can reload from the CSV using Load CSV file.'],
-          ['What is FIFO?', 'First In, First Out — when you log a sell, the oldest lots are consumed first. This matches the standard accounting method for share sales.'],
-          ['What is Break-even?', 'The SAP EUR price (at current exchange rate) at which your total portfolio would be exactly at zero P&L. If SAP trades above this, you\'re in profit.'],
-          ['What is STCG / LTCG?', 'Short Term Capital Gain (held < 1 year) and Long Term Capital Gain (held ≥ 1 year). These come from your sell transaction records.'],
-          ['Can I use this on mobile?', 'Yes — the layout is responsive and works on mobile browsers.'],
-          ['How do I share this app?', 'Click ⬆ Share App — it copies the GitHub link to your clipboard. Recipients visit the link to access their own fresh instance with no data.'],
-          ['Can I edit mistakes in my data?', 'Yes — click ✎ Edit in the Currently Held Shares or Transaction History section headers to enter edit mode. Cells become inputs, click ✔ Save All when done.'],
-        ].map(([q, a]) => `
         <div style="border-bottom:1px solid var(--border);padding:14px 0">
-          <div style="font-weight:600;color:var(--text);margin-bottom:4px">${q}</div>
-          <div style="color:var(--muted)">${a}</div>
-        </div>`).join('')}
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">Where is my data stored?</div>
+          <div style="color:var(--muted)">Your portfolio data is stored only in this browser's localStorage. Nothing is sent to any server. Clearing your browser data will erase it — export a CSV backup regularly.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">Why is SAP price not loading?</div>
+          <div style="color:var(--muted)">The price is cached for 5 minutes. Wait for the countdown on the Refresh button to finish, then click it again. If it still fails, Google/Yahoo may be rate-limiting — try again in a few minutes.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">My data disappeared after refresh — why?</div>
+          <div style="color:var(--muted)">Clearing browser history/cache wipes localStorage. Always export a CSV backup before clearing. You can reload from the CSV using Load CSV file.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">What is FIFO?</div>
+          <div style="color:var(--muted)">First In, First Out — when you log a sell, the oldest lots are consumed first. This matches the standard accounting method for share sales.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">What is Break-even?</div>
+          <div style="color:var(--muted)">The SAP EUR price (at current exchange rate) at which your total portfolio would be exactly at zero P&amp;L. If SAP trades above this, you're in profit.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">What is STCG / LTCG?</div>
+          <div style="color:var(--muted)">Short Term Capital Gain (held &lt; 1 year) and Long Term Capital Gain (held &ge; 1 year). These come from your sell transaction records.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">Can I use this on mobile?</div>
+          <div style="color:var(--muted)">Yes — the layout is responsive and works on mobile browsers.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">How do I share this app?</div>
+          <div style="color:var(--muted)">Click ⬆ Share App — it copies the GitHub link to your clipboard. Recipients visit the link to access their own fresh instance with no data.</div>
+        </div>
+        <div style="padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">Can I edit mistakes in my data?</div>
+          <div style="color:var(--muted)">Yes — click ✎ Edit in the Currently Held Shares or Transaction History section headers to enter edit mode. Cells become inputs, click ✔ Save All when done.</div>
+        </div>
       </div>
     </div>
   </div>
