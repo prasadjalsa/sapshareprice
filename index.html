@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAP Share Portfolio Calculator</title>
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --surface2: #f5f7fa;
+    --border: #d1d9e0;
+    --accent: #1a6fd4;
+    --green: #16a34a;
+    --red: #dc2626;
+    --yellow: #d97706;
+    --text: #1a1f2e;
+    --muted: #6b7280;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+  a { color: var(--accent); }
+
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header .tagline { color: var(--muted); font-size: 13px; }
+
+  .main { padding: 20px 24px; max-width: 1600px; margin: 0 auto; }
+
+  /* Top bar */
+  .topbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .topbar label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .topbar input[type=number], .topbar input[type=file] { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 10px; font-size: 14px; width: 160px; }
+  .topbar input[type=file] { width: auto; cursor: pointer; }
+  .btn { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .btn:hover { opacity: 0.88; }
+  .btn.secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+  .btn.green { background: #16a34a; }
+  .btn.red { background: #b91c1c; }
+  .sep { width: 1px; background: var(--border); align-self: stretch; margin: 0 4px; }
+
+  /* KPI cards */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-bottom: 20px; align-items: stretch; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; }
+  .kpi .label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-bottom: 6px; }
+  .kpi .value { font-size: 22px; font-weight: 700; }
+  .kpi .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .neu { color: var(--yellow); }
+
+  /* Sections */
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .section-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .section-header h2 { font-size: 15px; font-weight: 600; }
+  .section-header .actions { display: flex; gap: 8px; align-items: center; }
+
+  /* Tables */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--surface2); color: var(--muted); text-align: left; padding: 9px 12px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge.profit { background: #16a34a18; color: var(--green); }
+  .badge.loss { background: #dc262618; color: var(--red); }
+  .badge.stcg { background: #1a6fd418; color: var(--accent); }
+  .badge.ltcg { background: #d9770618; color: var(--yellow); }
+  .badge.hold { background: #6b728018; color: var(--muted); }
+
+  /* Add row form */
+  .add-form { padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+  .add-form .field { display: flex; flex-direction: column; gap: 4px; }
+  .add-form label { font-size: 11px; color: var(--muted); min-height: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .add-form input, .add-form select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 10px; font-size: 13px; width: 100%; }
+  .add-form .actions { display: flex; align-items: flex-end; gap: 8px; }
+
+  /* Search/filter */
+  .filter-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .filter-bar input { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px 10px; font-size: 13px; width: 200px; }
+  .filter-bar select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+
+  /* Pagination */
+  .pagination { padding: 12px 18px; display: flex; gap: 8px; align-items: center; justify-content: flex-end; border-top: 1px solid var(--border); }
+  .pagination button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 5px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+  .pagination button:disabled { opacity: 0.4; cursor: default; }
+  .pagination .info { color: var(--muted); font-size: 12px; }
+
+  /* Misc */
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  .tag { font-size: 11px; padding: 2px 7px; border-radius: 4px; background: var(--surface2); color: var(--muted); }
+  .flex { display: flex; gap: 8px; align-items: center; }
+  .edit-input { background: var(--bg); border: 1px solid var(--accent); border-radius: 4px; padding: 3px 6px; font-size: 12px; color: var(--text); width: 100%; min-width: 70px; }
+  .edit-input:focus { outline: 2px solid var(--accent); }
+  #status-bar { font-size: 12px; color: var(--muted); padding: 6px 0; min-height: 20px; }
+
+  @media (max-width: 640px) {
+    .kpis { grid-template-columns: 1fr 1fr; }
+    .kpi .value { font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>SAP Share Portfolio</h1>
+    <div class="tagline">Profit &amp; Loss Dashboard &mdash; prices in INR</div>
+  </div>
+  <div style="margin-left:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;line-height:1.7">
+    <div style="color:var(--muted);margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">Start server (run once in terminal)</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <code id="server-cmd" style="color:#1a6fd4;font-family:monospace;font-size:12px">cd "&lt;Folder where files are saved&gt;" &amp;&amp; python3 server.py</code>
+      <button onclick="copyCmd()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px" title="Copy to clipboard">Copy</button>
+    </div>
+    <div style="color:var(--muted);margin-top:4px;font-size:11px">Then open &rarr; <a href="http://localhost:8080" target="_blank" style="color:var(--accent)">http://localhost:8080</a></div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Top controls -->
+  <div class="topbar">
+    <div>
+      <label>Load CSV file</label>
+      <input type="file" id="csvFile" accept=".csv">
+    </div>
+    <div class="sep"></div>
+    <div>
+      <label>SAP Price (EUR)</label>
+      <input type="number" id="currentPriceEur" step="0.01" placeholder="fetching…">
+    </div>
+    <div>
+      <label>EUR → INR Rate</label>
+      <input type="number" id="currentRate" step="0.01" placeholder="fetching…">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label id="price-last-updated" style="font-size:11px;color:var(--muted)">&nbsp;</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn" id="refresh-btn" onclick="fetchLivePrices()">⟳ Refresh Prices</button>
+        <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
+          <input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh()" style="cursor:pointer">
+          Auto (15 min)
+        </label>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label>&nbsp;</label>
+      <button class="btn secondary" onclick="recalculate()">Apply Prices</button>
+    </div>
+    <div class="sep"></div>
+    <div>
+      <label>Merge new CSV (adds only new dates)</label>
+      <input type="file" id="mergeFile" accept=".csv">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label>&nbsp;</label>
+      <button class="btn secondary" onclick="mergeCSV()">Merge</button>
+    </div>
+    <div class="sep"></div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label>&nbsp;</label>
+      <button class="btn green" onclick="exportCSV()">Export CSV</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label>&nbsp;</label>
+      <button class="btn red" onclick="clearStorage()">Clear Storage</button>
+    </div>
+    <div class="sep"></div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label>&nbsp;</label>
+      <button class="btn" style="background:#7c3aed" onclick="shareApp()">⬆ Share App</button>
+    </div>
+  </div>
+
+  <div id="status-bar"></div>
+
+  <!-- Unified KPI row — main tiles + sparkline tiles in one grid -->
+  <div class="kpis" id="kpis-all" style="margin-bottom:20px">
+    <!-- Main KPIs injected here by renderKPIs() -->
+    <div id="kpis" style="display:contents"></div>
+    <!-- Sparkline tiles — static so canvases persist -->
+    <div class="kpi" onclick="openPnLChart()" style="cursor:pointer" title="Click to view overall P&L % chart">
+      <div class="label">Unrealised P&L <span style="font-size:10px;color:var(--accent)">↗</span></div>
+      <div class="value neu" id="spark-pnl-value">—</div>
+      <div class="sub" id="spark-pnl-sub"></div>
+      <canvas id="pnl-spark" style="width:100%;height:40px;display:block;margin-top:auto;padding-top:6px"></canvas>
+    </div>
+    <div class="kpi" onclick="openPerLotChart()" style="cursor:pointer" title="Click to view per-lot P&L % chart">
+      <div class="label">P&L % by Date <span style="font-size:10px;color:var(--accent)">↗</span></div>
+      <div class="value neu" id="spark-lot-value">—</div>
+      <div class="sub">Latest lot</div>
+      <canvas id="pnl-spark-2" style="width:100%;height:40px;display:block;margin-top:auto;padding-top:6px"></canvas>
+    </div>
+  </div>
+
+  <!-- Held shares -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Currently Held Shares</h2>
+      <div class="actions filter-bar">
+        <select id="held-plan-filter" onchange="heldPage=0;renderHeld()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font-size:13px;">
+          <option value="">All Plan Types</option>
+          <option value="Own SAP">Own SAP</option>
+          <option value="Own SAP Dividend">Own SAP Dividend</option>
+          <option value="Move SAP">Move SAP</option>
+          <option value="Move SAP Dividend">Move SAP Dividend</option>
+        </select>
+        <select id="held-status-filter" onchange="heldPage=0;renderHeld()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font-size:13px;">
+          <option value="">All Status</option>
+          <option value="PROFIT">Profit</option>
+          <option value="LOSS">Loss</option>
+          <option value="HOLD">Hold</option>
+        </select>
+        <span class="tag" id="held-count">0 lots</span>
+        <button id="held-edit-btn"   onclick="toggleHeldEdit()" class="btn secondary" style="font-size:12px;padding:5px 12px">✎ Edit</button>
+        <button id="held-save-btn"   onclick="saveHeldEdits()"  class="btn green"     style="font-size:12px;padding:5px 12px;display:none">✔ Save All</button>
+        <button id="held-cancel-btn" onclick="cancelHeldEdit()" class="btn secondary" style="font-size:12px;padding:5px 12px;display:none">✖ Cancel</button>
+      </div>
+    </div>
+    <!-- filtered P&L summary row -->
+    <div id="held-summary" style="display:none;padding:10px 18px;border-bottom:1px solid var(--border);gap:24px;flex-wrap:wrap;font-size:13px;background:var(--surface2)"></div>
+    <div class="tbl-wrap">
+      <table id="held-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th onclick="sortHeld('date')" style="cursor:pointer;user-select:none" title="Click to sort">Acq. Date <span id="sh-date">▼</span></th>
+            <th>Plan Type</th>
+            <th>Buy Price (EUR)</th>
+            <th>Buy Rate</th>
+            <th>Cost / Share (INR)</th>
+            <th>Qty Held</th>
+            <th>Total Cost (INR)</th>
+            <th>Curr. Price (INR)</th>
+            <th>Curr. Value (INR)</th>
+            <th>P&amp;L (INR)</th>
+            <th>P&amp;L %</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="13" class="empty">Load a CSV file to see your holdings</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <span class="info" id="held-page-info"></span>
+      <label style="font-size:12px;color:var(--muted)">Per page:
+        <select id="held-page-size" onchange="heldPageSize=+this.value;heldPage=0;renderHeld()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 6px;font-size:12px;margin-left:4px">
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+          <option value="40">40</option>
+          <option value="50">50</option>
+        </select>
+      </label>
+      <button id="held-prev" onclick="changeHeldPage(-1)">&#8592; Prev</button>
+      <button id="held-next" onclick="changeHeldPage(1)">Next &#8594;</button>
+    </div>
+  </div>
+
+  <!-- Add new row -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Add New Purchase / Award Row</h2>
+    </div>
+    <div class="add-form" id="add-form">
+      <div class="field">
+        <label>Acquisition Date *</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="field">
+        <label>Activity *</label>
+        <select id="f-activity">
+          <option value="Purchase">Purchase</option>
+          <option value="Award">Award</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Plan Type *</label>
+        <select id="f-plantype">
+          <option value="Own SAP">Own SAP</option>
+          <option value="Own SAP Dividend">Own SAP Dividend</option>
+          <option value="Move SAP">Move SAP</option>
+          <option value="Move SAP Dividend">Move SAP Dividend</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Purchase Price (EUR) *</label>
+        <input type="number" id="f-price-eur" step="0.00001" placeholder="e.g. 141.03">
+      </div>
+      <div class="field">
+        <label>
+          Exchange Rate
+          <span onclick="toggleRateDir()" id="rate-toggle" title="Click to flip direction" style="display:inline-flex;align-items:center;margin-left:5px;cursor:pointer;background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:600;vertical-align:middle;user-select:none">EUR→INR</span>
+        </label>
+        <input type="number" id="f-rate" step="0.00001" placeholder="e.g. 108.75">
+      </div>
+      <div class="field">
+        <label>Quantity *</label>
+        <input type="number" id="f-qty" step="0.000001" placeholder="e.g. 2.2628">
+      </div>
+      <div class="actions">
+        <button class="btn green" onclick="addRow()">Add Row</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Sell (FIFO) -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Log Sell <span style="font-size:12px;font-weight:400;color:var(--muted)">(FIFO — oldest lots first)</span></h2>
+    </div>
+    <div class="add-form">
+      <div class="field">
+        <label>Sell Date *</label>
+        <input type="date" id="f-sell-date">
+      </div>
+      <div class="field">
+        <label>Sell Price (EUR) *</label>
+        <input type="number" id="f-sell-price-eur" step="0.00001" placeholder="e.g. 159.74">
+      </div>
+      <div class="field">
+        <label>
+          Sell Exchange Rate *
+          <span onclick="toggleSellRateDir()" id="sell-rate-toggle" title="Click to flip direction" style="display:inline-flex;align-items:center;margin-left:5px;cursor:pointer;background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:600;vertical-align:middle;user-select:none">EUR→INR</span>
+        </label>
+        <input type="number" id="f-sell-rate" step="0.00001" placeholder="e.g. 109.60">
+      </div>
+      <div class="field">
+        <label>Quantity to Sell *</label>
+        <input type="number" id="f-sell-qty" step="0.000001" placeholder="e.g. 2.5">
+      </div>
+      <div class="field">
+        <label>Fees (EUR) — optional</label>
+        <input type="number" id="f-sell-fees-eur" step="0.00001" placeholder="e.g. 1.50">
+      </div>
+      <div class="actions">
+        <button class="btn red" onclick="logSell()">Log Sell</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Realised / Total P&L summary -->
+  <div class="kpis" id="kpis-summary" style="margin-bottom:20px"></div>
+
+  <!-- Transaction history -->
+  <div class="section">
+    <div class="section-header">
+      <h2 style="cursor:pointer;user-select:none" onclick="toggleHistory()">
+        Transaction History (Sold)
+        <span id="hist-toggle-icon" style="font-size:16px;color:var(--muted);margin-left:6px">▸</span>
+      </h2>
+      <div class="actions filter-bar">
+        <input type="text" id="hist-search" placeholder="Search..." oninput="renderHistory()">
+        <select id="hist-filter" onchange="renderHistory()">
+          <option value="">All types</option>
+          <option value="Short Term Capital Gain">STCG</option>
+          <option value="Long Term Capital Gain">LTCG</option>
+        </select>
+        <span class="tag" id="hist-count">0 rows</span>
+        <button id="hist-edit-edit-btn"   onclick="toggleHistEdit()" class="btn secondary" style="font-size:12px;padding:5px 12px">✎ Edit</button>
+        <button id="hist-edit-save-btn"   onclick="saveHistEdits()"  class="btn green"     style="font-size:12px;padding:5px 12px;display:none">✔ Save All</button>
+        <button id="hist-edit-cancel-btn" onclick="cancelHistEdit()" class="btn secondary" style="font-size:12px;padding:5px 12px;display:none">✖ Cancel</button>
+      </div>
+    </div>
+    <div id="hist-body" style="display:none">
+    <div class="tbl-wrap">
+      <table id="hist-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Acq. Date</th>
+            <th>Activity</th>
+            <th>Plan Type</th>
+            <th>Buy (EUR)</th>
+            <th>Buy (INR)</th>
+            <th>Sell Date</th>
+            <th>Sell (EUR)</th>
+            <th>Sell (INR)</th>
+            <th>Qty Sold</th>
+            <th>Sell Value (INR)</th>
+            <th>Cost (INR)</th>
+            <th>Capital Gain (INR)</th>
+            <th>Type</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="14" class="empty">Load a CSV file</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <span class="info" id="hist-page-info"></span>
+      <button id="hist-prev" onclick="changePage(-1)">&#8592; Prev</button>
+      <button id="hist-next" onclick="changePage(1)">Next &#8594;</button>
+    </div>
+    </div><!-- /hist-body -->
+  </div>
+
+</div><!-- .main -->
+
+<!-- P&L Chart Modal -->
+<div id="pnl-modal" onclick="if(event.target===this)closePnLChart()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:min(860px,95vw);max-height:90vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="font-size:16px;font-weight:700">Overall Unrealised P&amp;L % by Acquisition Date</h2>
+      <button onclick="closePnLChart()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <canvas id="pnl-canvas" style="width:100%;height:340px"></canvas>
+  </div>
+</div>
+
+<script>
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let rows = [];          // all parsed CSV rows as objects
+let histPage = 0;
+let heldPage = 0;
+let heldPageSize = 10;
+let heldSortCol = 'date';
+let heldSortAsc = false;
+const PAGE_SIZE = 30;
+
+// ─── localStorage ─────────────────────────────────────────────────────────────
+const LS_KEY = 'sap_portfolio_rows';
+
+function saveToStorage() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(rows));
+  } catch(e) {
+    status('Warning: could not save to localStorage — ' + e.message);
+  }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
+function clearStorage() {
+  if (confirm('Clear all saved data from this browser? This cannot be undone.')) {
+    localStorage.removeItem(LS_KEY);
+    rows = [];
+    renderAll();
+    status('Storage cleared. Load a CSV file to start again.');
+  }
+}
+
+// ─── CSV Parsing ─────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+
+  // Remove leading index column if present (first header cell is empty or numeric)
+  const headerLine = lines[0];
+  const headers = splitCSVLine(headerLine);
+  const firstHeader = headers[0].trim();
+  const hasLeadingIndex = (firstHeader === '' || /^\d+$/.test(firstHeader));
+
+  const colStart = hasLeadingIndex ? 1 : 0;
+  const cols = headers.slice(colStart).map(h => h.trim().replace(/^"|"$/g, ''));
+
+  const result = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const vals = splitCSVLine(lines[i]).slice(colStart);
+    const obj = {};
+    cols.forEach((c, j) => {
+      obj[c] = (vals[j] || '').trim().replace(/^"|"$/g, '');
+    });
+    result.push(obj);
+  }
+  return result;
+}
+
+function splitCSVLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQ = !inQ; }
+    else if (ch === ',' && !inQ) { result.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  result.push(cur);
+  return result;
+}
+
+// ─── CSV serialisation ───────────────────────────────────────────────────────
+const CSV_COLS = [
+  'ACQUISITION DATE','Activity','PLAN TYPE','PURCHASE PRICE (EURO)',
+  'BUY EXCHANGE RATE (EURO>INR)','PURCHASE PRICE (INR)','PURCHASE QUANTITY',
+  'TOTAL VESTED QUANTITY','BALANCE QUANTITY','_purchase_idx','ORDER_TYPE',
+  'SELL DATE','SELL PRICE (EURO)','SELL EXCHANGE RATE (EURO>INR)',
+  'SELL PRICE (INR)','FEES (EURO)','FEES (INR)','SELL QUANTITY',
+  'TOTAL SELL PRICE (INR)','TOTAL PURCHASE COST (INR)','CAPITAL GAIN (INR)',
+  'CAPITAL GAIN TYPE','Total Investment (at cost) (in rupees)'
+];
+
+function rowsToCSV(data) {
+  const header = ['', ...CSV_COLS].join(',');
+  const lines = data.map((r, i) => {
+    const vals = CSV_COLS.map(c => {
+      const v = r[c] !== undefined ? r[c] : '';
+      return String(v).includes(',') ? `"${v}"` : v;
+    });
+    return [i, ...vals].join(',');
+  });
+  return [header, ...lines].join('\n');
+}
+
+// ─── File load ───────────────────────────────────────────────────────────────
+document.getElementById('csvFile').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    rows = parseCSV(ev.target.result);
+    saveToStorage();
+    status(`Loaded ${rows.length} rows from ${file.name} — saved to browser storage.`);
+    histPage = 0;
+    renderAll();
+  };
+  reader.readAsText(file);
+});
+
+// ─── Merge CSV ───────────────────────────────────────────────────────────────
+function mergeCSV() {
+  const fileInput = document.getElementById('mergeFile');
+  const file = fileInput.files[0];
+  if (!file) { status('Select a CSV file to merge first.'); return; }
+  if (rows.length === 0) { status('Load your base CSV first, then merge.'); return; }
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const newRows = parseCSV(ev.target.result);
+    // Collect existing acquisition dates
+    const existingDates = new Set(rows.map(r => normalizeDate(r['ACQUISITION DATE'])));
+    // Filter only rows whose acquisition date is NOT already present
+    const toAdd = newRows.filter(r => !existingDates.has(normalizeDate(r['ACQUISITION DATE'])));
+    rows = [...rows, ...toAdd];
+    saveToStorage();
+    status(`Merged ${toAdd.length} new row(s) (${newRows.length - toAdd.length} duplicate date(s) skipped) — saved.`);
+    histPage = 0;
+    renderAll();
+    fileInput.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function normalizeDate(d) {
+  if (!d) return '';
+  return d.split('T')[0];
+}
+
+// ─── Add row ──────────────────────────────────────────────────────────────────
+let rateIsInrPerEur = false;
+let sellRateIsInrPerEur = false;
+
+function toggleRateDir() {
+  rateIsInrPerEur = !rateIsInrPerEur;
+  const toggle = document.getElementById('rate-toggle');
+  const inp    = document.getElementById('f-rate');
+  if (rateIsInrPerEur) {
+    toggle.textContent = 'INR→EUR';
+    toggle.style.background = 'var(--yellow)';
+    inp.placeholder = 'e.g. 0.00921';
+  } else {
+    toggle.textContent = 'EUR→INR';
+    toggle.style.background = 'var(--accent)';
+    inp.placeholder = 'e.g. 108.75';
+  }
+}
+
+function toggleSellRateDir() {
+  sellRateIsInrPerEur = !sellRateIsInrPerEur;
+  const toggle = document.getElementById('sell-rate-toggle');
+  const inp    = document.getElementById('f-sell-rate');
+  if (sellRateIsInrPerEur) {
+    toggle.textContent = 'INR→EUR';
+    toggle.style.background = 'var(--yellow)';
+    inp.placeholder = 'e.g. 0.00913';
+  } else {
+    toggle.textContent = 'EUR→INR';
+    toggle.style.background = 'var(--accent)';
+    inp.placeholder = 'e.g. 109.60';
+  }
+}
+
+function addRow() {
+  const date = document.getElementById('f-date').value;
+  const activity = document.getElementById('f-activity').value;
+  const planType = document.getElementById('f-plantype').value;
+  const priceEur = parseFloat(document.getElementById('f-price-eur').value);
+  const rawRate = parseFloat(document.getElementById('f-rate').value) || 0;
+  const rate = (rawRate && rateIsInrPerEur) ? parseFloat((1 / rawRate).toFixed(6)) : rawRate;
+  const qty = parseFloat(document.getElementById('f-qty').value);
+
+  if (!date || isNaN(priceEur) || isNaN(qty)) {
+    status('Please fill Acquisition Date, Purchase Price (EUR), and Quantity.'); return;
+  }
+
+  const priceInr = rate ? priceEur * rate : 0;
+  const newRow = {};
+  CSV_COLS.forEach(c => newRow[c] = '');
+  newRow['ACQUISITION DATE'] = date + 'T00:00:00.000';
+  newRow['Activity'] = activity;
+  newRow['PLAN TYPE'] = planType;
+  newRow['PURCHASE PRICE (EURO)'] = priceEur;
+  newRow['BUY EXCHANGE RATE (EURO>INR)'] = rate || '';
+  newRow['PURCHASE PRICE (INR)'] = priceInr ? priceInr.toFixed(2) : '';
+  newRow['PURCHASE QUANTITY'] = qty;
+  newRow['TOTAL VESTED QUANTITY'] = qty;
+  newRow['BALANCE QUANTITY'] = qty;
+  newRow['_purchase_idx'] = rows.length;
+  newRow['Total Investment (at cost) (in rupees)'] = 0;
+
+  rows.push(newRow);
+  saveToStorage();
+  status('Row added and saved to browser storage.');
+  renderAll();
+
+  // Reset form
+  ['f-date','f-price-eur','f-rate','f-qty'].forEach(id => document.getElementById(id).value = '');
+}
+
+// ─── Log Sell (FIFO) ──────────────────────────────────────────────────────────
+function logSell() {
+  const sellDateRaw  = document.getElementById('f-sell-date').value;
+  const sellPriceEur = parseFloat(document.getElementById('f-sell-price-eur').value);
+  const rawSellRate  = parseFloat(document.getElementById('f-sell-rate').value) || 0;
+  const sellRate     = (rawSellRate && sellRateIsInrPerEur)
+                         ? parseFloat((1 / rawSellRate).toFixed(6)) : rawSellRate;
+  const sellQtyTotal = parseFloat(document.getElementById('f-sell-qty').value);
+  const feesEurTotal = parseFloat(document.getElementById('f-sell-fees-eur').value) || 0;
+
+  if (!sellDateRaw || isNaN(sellPriceEur) || isNaN(sellQtyTotal) || sellQtyTotal <= 0) {
+    status('Please fill Sell Date, Sell Price (EUR), and Quantity.'); return;
+  }
+  if (!sellRate || sellRate <= 0) {
+    status('Please enter a valid Sell Exchange Rate.'); return;
+  }
+
+  // FIFO: oldest lots first
+  const heldLots = rows
+    .map((r, idx) => ({ row: r, idx }))
+    .filter(({ row }) => isHeld(row))
+    .sort((a, b) => a.row['ACQUISITION DATE'].localeCompare(b.row['ACQUISITION DATE']));
+
+  const totalHeld = heldLots.reduce((s, { row }) => s + num(row['BALANCE QUANTITY']), 0);
+  if (sellQtyTotal > totalHeld + 1e-9) {
+    status(`Cannot sell ${sellQtyTotal} — only ${totalHeld.toFixed(6)} shares held.`); return;
+  }
+
+  const sellPriceInr  = sellPriceEur * sellRate;
+  const feesInrTotal  = feesEurTotal * sellRate;
+  const sellDateStored = sellDateRaw + 'T00:00:00.000';
+
+  // Build consume plan
+  const consumePlan = [];
+  let remaining = sellQtyTotal;
+  for (const { row, idx } of heldLots) {
+    if (remaining <= 1e-9) break;
+    const bal     = num(row['BALANCE QUANTITY']);
+    const consume = Math.min(bal, remaining);
+    consumePlan.push({ rowIdx: idx, consumeQty: consume, remainingQty: bal - consume,
+                       isFullSell: (bal - consume) <= 1e-9 });
+    remaining -= consume;
+  }
+
+  // Allocate fees proportionally; last lot absorbs rounding residual
+  let feesEurAllocated = 0, feesInrAllocated = 0;
+  consumePlan.forEach((p, i) => {
+    if (i < consumePlan.length - 1) {
+      p.feesEur = parseFloat((feesEurTotal * p.consumeQty / sellQtyTotal).toFixed(5));
+      p.feesInr = parseFloat((feesInrTotal * p.consumeQty / sellQtyTotal).toFixed(2));
+      feesEurAllocated += p.feesEur;
+      feesInrAllocated += p.feesInr;
+    } else {
+      p.feesEur = parseFloat((feesEurTotal - feesEurAllocated).toFixed(5));
+      p.feesInr = parseFloat((feesInrTotal - feesInrAllocated).toFixed(2));
+    }
+  });
+
+  function capitalGainType(acqStr, sellStr) {
+    const diffDays = (new Date(sellStr) - new Date(acqStr.split('T')[0])) / 86400000;
+    return diffDays > 730 ? 'Long Term Capital Gain' : 'Short Term Capital Gain';
+  }
+
+  const newSellRows = [];
+  for (const plan of consumePlan) {
+    const src = rows[plan.rowIdx];
+    const purchasePriceInr = num(src['PURCHASE PRICE (INR)'])
+      || num(src['PURCHASE PRICE (EURO)']) * num(src['BUY EXCHANGE RATE (EURO>INR)']);
+    const totalSellPriceInr    = parseFloat((plan.consumeQty * sellPriceInr).toFixed(2));
+    const totalPurchaseCostInr = parseFloat((plan.consumeQty * purchasePriceInr).toFixed(2));
+    const capitalGainInr       = parseFloat((totalSellPriceInr - totalPurchaseCostInr - plan.feesInr).toFixed(2));
+    const cgType               = capitalGainType(src['ACQUISITION DATE'], sellDateRaw);
+
+    const fillSellFields = (row) => {
+      row['ORDER_TYPE']                     = 'SELL';
+      row['SELL DATE']                      = sellDateStored;
+      row['SELL PRICE (EURO)']              = sellPriceEur;
+      row['SELL EXCHANGE RATE (EURO>INR)']  = sellRate;
+      row['SELL PRICE (INR)']               = parseFloat(sellPriceInr.toFixed(2));
+      row['FEES (EURO)']                    = plan.feesEur;
+      row['FEES (INR)']                     = plan.feesInr;
+      row['SELL QUANTITY']                  = plan.consumeQty;
+      row['TOTAL SELL PRICE (INR)']         = totalSellPriceInr;
+      row['TOTAL PURCHASE COST (INR)']      = totalPurchaseCostInr;
+      row['CAPITAL GAIN (INR)']             = capitalGainInr;
+      row['CAPITAL GAIN TYPE']              = cgType;
+      row['BALANCE QUANTITY']               = 0;
+    };
+
+    if (plan.isFullSell) {
+      fillSellFields(src);
+    } else {
+      // Reduce original row's balance only
+      src['BALANCE QUANTITY'] = parseFloat(plan.remainingQty.toFixed(6));
+      // Create new SELL row copying all purchase fields
+      const sellRow = {};
+      CSV_COLS.forEach(c => sellRow[c] = '');
+      ['ACQUISITION DATE','Activity','PLAN TYPE','PURCHASE PRICE (EURO)',
+       'BUY EXCHANGE RATE (EURO>INR)','PURCHASE PRICE (INR)','PURCHASE QUANTITY',
+       'TOTAL VESTED QUANTITY','_purchase_idx'].forEach(f => sellRow[f] = src[f]);
+      sellRow['Total Investment (at cost) (in rupees)'] = 0;
+      fillSellFields(sellRow);
+      newSellRows.push(sellRow);
+    }
+  }
+
+  rows.push(...newSellRows);
+  saveToStorage();
+
+  const partial = consumePlan.filter(p => !p.isFullSell).length;
+  status(`Sell logged: ${sellQtyTotal} shares across ${consumePlan.length} lot(s)` +
+    (partial ? ` (${partial} partial split)` : '') + '. Capital gain rows added.');
+  renderAll();
+
+  ['f-sell-date','f-sell-price-eur','f-sell-rate','f-sell-qty','f-sell-fees-eur']
+    .forEach(id => { document.getElementById(id).value = ''; });
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (rows.length === 0) { status('Nothing to export.'); return; }
+  const csv = rowsToCSV(rows);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2,'0');
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  const yy = String(now.getFullYear()).slice(-2);
+  const hh = String(now.getHours()).padStart(2,'0');
+  const min = String(now.getMinutes()).padStart(2,'0');
+  a.download = `SAP_SharePrice_analyzed_at_${dd}-${mm}-${yy}_${hh}-${min}.csv`;
+  a.click();
+  status('CSV exported.');
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+function fmt(n, dec=2) { return n.toLocaleString('en-IN', {minimumFractionDigits: dec, maximumFractionDigits: dec}); }
+function fmtEur(n) { return '€' + fmt(n); }
+function fmtInr(n) { return '₹' + fmt(n); }
+function status(msg) { document.getElementById('status-bar').textContent = msg; }
+
+function copyCmd() {
+  const cmd = document.getElementById('server-cmd').textContent;
+  navigator.clipboard.writeText(cmd).then(() => {
+    const btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+
+async function fetchServerDir() {
+  try {
+    const res = await fetch('/api/info');
+    const json = await res.json();
+    if (json.dir) {
+      const cmd = `cd "${json.dir}" && python3 server.py`;
+      document.getElementById('server-cmd').textContent = cmd;
+    }
+  } catch(_) {}
+}
+
+// ─── Share App ────────────────────────────────────────────────────────────────
+function shareApp() {
+  const url = 'https://github.com/prasadjalsa/sapshareprice';
+  navigator.clipboard.writeText(url).then(() => {
+    status('GitHub link copied to clipboard: ' + url);
+    const btn = document.querySelector('[onclick="shareApp()"]');
+    if (btn) { const orig = btn.textContent; btn.textContent = '✓ Link Copied!'; setTimeout(() => btn.textContent = orig, 2000); }
+  }).catch(() => {
+    // Fallback if clipboard not available
+    prompt('Copy this GitHub link to share:', url);
+  });
+}
+
+
+
+function colorClass(n) { return n > 0 ? 'pos' : n < 0 ? 'neg' : 'neu'; }
+
+function isHeld(r) {
+  return num(r['BALANCE QUANTITY']) > 1e-9 && (!r['ORDER_TYPE'] || r['ORDER_TYPE'] === '');
+}
+
+function isSold(r) {
+  return r['ORDER_TYPE'] === 'SELL' || r['ORDER_TYPE'] === 'STC*';
+}
+
+// ─── Recalculate & Render ────────────────────────────────────────────────────
+function recalculate() { renderAll(); }
+
+function renderAll() {
+  renderKPIs();
+  renderHeld();
+  renderHistory();
+}
+
+// ─── Live Price Fetch ─────────────────────────────────────────────────────────
+let _cooldownTimer = null;
+let _autoRefreshTimer = null;
+const AUTO_REFRESH_MS = 15 * 60 * 1000; // 15 minutes
+
+function toggleAutoRefresh() {
+  const on = document.getElementById('auto-refresh-toggle').checked;
+  if (on) {
+    _scheduleAutoRefresh();
+    status('Auto-refresh enabled — prices will update every 15 minutes.');
+  } else {
+    if (_autoRefreshTimer) { clearTimeout(_autoRefreshTimer); _autoRefreshTimer = null; }
+    status('Auto-refresh disabled.');
+  }
+}
+
+function _scheduleAutoRefresh() {
+  if (_autoRefreshTimer) clearTimeout(_autoRefreshTimer);
+  _autoRefreshTimer = setTimeout(async () => {
+    if (!document.getElementById('auto-refresh-toggle').checked) return;
+    await fetchLivePrices();
+    _scheduleAutoRefresh(); // schedule next cycle after fetch completes
+  }, AUTO_REFRESH_MS);
+}
+
+function startCooldown(ageSeconds) {
+  const CACHE_TTL = 300; // must match server.py CACHE_TTL
+  const btn = document.getElementById('refresh-btn');
+  const lbl = document.getElementById('price-last-updated');
+  if (_cooldownTimer) clearInterval(_cooldownTimer);
+
+  let remaining = CACHE_TTL - ageSeconds;
+  if (remaining <= 0) return;
+
+  btn.disabled = true;
+  _cooldownTimer = setInterval(() => {
+    remaining--;
+
+    // Auto-refresh countdown in label (counts down from 15 min independently)
+    const autoOn = document.getElementById('auto-refresh-toggle').checked;
+
+    if (remaining <= 0) {
+      clearInterval(_cooldownTimer);
+      btn.disabled = false;
+      btn.textContent = '⟳ Refresh Prices';
+      lbl.textContent = lbl.dataset.base || '';
+      return;
+    }
+
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    const countdown = m > 0 ? `${m}m ${s < 10 ? '0'+s : s}s` : `${s}s`;
+    btn.textContent = `⟳ Ready in ${countdown}`;
+
+    if (autoOn) {
+      const autoElapsed = (CACHE_TTL - ageSeconds - remaining);
+      const autoRemaining = Math.max(0, Math.round(AUTO_REFRESH_MS / 1000) - autoElapsed);
+      const am = Math.floor(autoRemaining / 60), as2 = autoRemaining % 60;
+      lbl.textContent = (lbl.dataset.base || '') + ` | auto in ${am}m ${as2 < 10 ? '0'+as2 : as2}s`;
+    } else {
+      lbl.textContent = lbl.dataset.base || '';
+    }
+  }, 1000);
+}
+
+async function fetchLivePrices() {
+  const btn = document.getElementById('refresh-btn');
+  const lbl = document.getElementById('price-last-updated');
+  btn.textContent = '⟳ Fetching…';
+  btn.disabled = true;
+  if (_cooldownTimer) { clearInterval(_cooldownTimer); _cooldownTimer = null; }
+  status('Fetching live SAP price and EUR→INR rate…');
+
+  let sapPrice = null, eurInr = null, errors = [], ageSeconds = 0;
+
+  // SAP price via local server proxy (handles User-Agent + caching to avoid Yahoo 429)
+  try {
+    const res = await fetch('/api/sap-price');
+    const json = await res.json();
+    if (json.price) {
+      sapPrice = json.price;
+      ageSeconds = json.age_seconds || 0;
+      const src = json.source ? ` (${json.source})` : '';
+      if (json.stale) errors.push(`SAP price is stale${src} — ${Math.round(ageSeconds/60)}min old`);
+    } else {
+      errors.push('SAP price unavailable: ' + (json.error || 'unknown'));
+    }
+  } catch (e) { errors.push('SAP price fetch failed — is server.py running?'); }
+
+  try {
+    const res = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR');
+    const json = await res.json();
+    eurInr = json?.rates?.INR;
+  } catch (e) { errors.push('EUR→INR fetch failed'); }
+
+  if (sapPrice) document.getElementById('currentPriceEur').value = sapPrice.toFixed(4);
+  if (eurInr)   document.getElementById('currentRate').value = eurInr.toFixed(4);
+
+  const now = new Date().toLocaleTimeString();
+  const baseLabel = errors.length ? 'partial — ' + errors.join(', ') : 'Updated ' + now;
+  lbl.dataset.base = baseLabel;
+  lbl.textContent = baseLabel;
+
+  if (sapPrice || eurInr) {
+    renderAll();
+    status(errors.length ? errors.join('; ') : `Prices updated at ${now}: SAP €${sapPrice?.toFixed(2)}, EUR→INR ₹${eurInr?.toFixed(2)}`);
+  } else {
+    status('Could not fetch prices. Enter manually and click Recalculate.');
+  }
+
+  // Start cooldown — button re-enables once cache TTL expires
+  startCooldown(ageSeconds);
+}
+
+// ─── Collapsible history ──────────────────────────────────────────────────────
+let histOpen = false;
+let heldEditMode = false;
+let histEditMode = false;
+
+function toggleHistory() {
+  histOpen = !histOpen;
+  document.getElementById('hist-body').style.display = histOpen ? '' : 'none';
+  document.getElementById('hist-toggle-icon').textContent = histOpen ? '▾' : '▸';
+}
+
+// ─── Edit Mode ────────────────────────────────────────────────────────────────
+function _setEditBtns(editBtn, saveBtn, cancelBtn, editMode) {
+  document.getElementById(editBtn).style.display   = editMode ? 'none' : '';
+  document.getElementById(saveBtn).style.display   = editMode ? '' : 'none';
+  document.getElementById(cancelBtn).style.display = editMode ? '' : 'none';
+}
+
+function toggleHeldEdit()  { heldEditMode = true;  _setEditBtns('held-edit-btn','held-save-btn','held-cancel-btn', true);  renderHeld(); }
+function cancelHeldEdit()  { heldEditMode = false; _setEditBtns('held-edit-btn','held-save-btn','held-cancel-btn', false); renderHeld(); }
+function toggleHistEdit()  { histEditMode = true;  _setEditBtns('hist-edit-edit-btn','hist-edit-save-btn','hist-edit-cancel-btn', true);  renderHistory(); }
+function cancelHistEdit()  { histEditMode = false; _setEditBtns('hist-edit-edit-btn','hist-edit-save-btn','hist-edit-cancel-btn', false); renderHistory(); }
+
+function saveHeldEdits() {
+  document.querySelectorAll('#held-table tbody tr[data-rowidx]').forEach(tr => {
+    const r = rows[parseInt(tr.dataset.rowidx)];
+    const dateVal = tr.querySelector('[data-field="ACQUISITION DATE"]').value;
+    if (dateVal) r['ACQUISITION DATE'] = dateVal + 'T00:00:00.000';
+    r['PLAN TYPE']                    = tr.querySelector('[data-field="PLAN TYPE"]').value;
+    const eur  = parseFloat(tr.querySelector('[data-field="PURCHASE PRICE (EURO)"]').value);
+    const rateInput = tr.querySelector('[data-field="BUY EXCHANGE RATE (EURO>INR)"]');
+    const rateToggle = rateInput ? rateInput.parentElement.querySelector('[data-inv]') : null;
+    const rawRate = parseFloat(rateInput ? rateInput.value : '');
+    const isInv = rateToggle && rateToggle.dataset.inv === '1';
+    const rate = !isNaN(rawRate) ? (isInv ? parseFloat((1 / rawRate).toFixed(6)) : rawRate) : NaN;
+    const qty  = parseFloat(tr.querySelector('[data-field="BALANCE QUANTITY"]').value);
+    if (!isNaN(eur))  r['PURCHASE PRICE (EURO)']          = eur;
+    if (!isNaN(rate)) r['BUY EXCHANGE RATE (EURO>INR)']   = rate;
+    if (!isNaN(eur) && !isNaN(rate)) r['PURCHASE PRICE (INR)'] = parseFloat((eur * rate).toFixed(2));
+    if (!isNaN(qty))  r['BALANCE QUANTITY']                = qty;
+  });
+  saveToStorage();
+  cancelHeldEdit();
+}
+
+function saveHistEdits() {
+  document.querySelectorAll('#hist-table tbody tr[data-rowidx]').forEach(tr => {
+    const r = rows[parseInt(tr.dataset.rowidx)];
+    const sellDate = tr.querySelector('[data-field="SELL DATE"]').value;
+    if (sellDate) r['SELL DATE'] = sellDate + 'T00:00:00.000';
+    const sEur = parseFloat(tr.querySelector('[data-field="SELL PRICE (EURO)"]').value);
+    const sInr = parseFloat(tr.querySelector('[data-field="SELL PRICE (INR)"]').value);
+    const qty  = parseFloat(tr.querySelector('[data-field="SELL QUANTITY"]').value);
+    const gain = parseFloat(tr.querySelector('[data-field="CAPITAL GAIN (INR)"]').value);
+    if (!isNaN(sEur)) r['SELL PRICE (EURO)']   = sEur;
+    if (!isNaN(sInr)) r['SELL PRICE (INR)']    = sInr;
+    if (!isNaN(qty))  r['SELL QUANTITY']        = qty;
+    if (!isNaN(gain)) r['CAPITAL GAIN (INR)']  = gain;
+  });
+  saveToStorage();
+  cancelHistEdit();
+}
+
+function flipRateToggle(span) {
+  const input = span.parentElement.querySelector('input');
+  const val = parseFloat(input.value);
+  const nowInv = span.dataset.inv !== '1';
+  span.dataset.inv = nowInv ? '1' : '0';
+  span.textContent = nowInv ? 'INR→EUR' : 'EUR→INR';
+  span.style.background = nowInv ? 'var(--yellow)' : 'var(--accent)';
+  if (!isNaN(val) && val > 0) input.value = parseFloat((1 / val).toFixed(6));
+}
+
+function deleteRow(idx) {
+  if (!confirm('Delete this row? This cannot be undone.')) return;
+  rows.splice(idx, 1);
+  saveToStorage();
+  renderAll();
+}
+
+function renderKPIs() {
+  const priceEur = num(document.getElementById('currentPriceEur').value);
+  const rate = num(document.getElementById('currentRate').value);
+  const priceInr = priceEur * rate;
+
+  const heldRows = rows.filter(isHeld);
+  const soldRows = rows.filter(isSold);
+
+  const totalQtyHeld = heldRows.reduce((s, r) => s + num(r['BALANCE QUANTITY']), 0);
+
+  let totalCost = 0, totalCurrentValue = 0;
+  heldRows.forEach(r => {
+    const qty = num(r['BALANCE QUANTITY']);
+    const costPerShare = num(r['PURCHASE PRICE (INR)']);
+    totalCost += qty * costPerShare;
+    if (priceInr > 0) totalCurrentValue += qty * priceInr;
+  });
+
+  const totalPnL = priceInr > 0 ? totalCurrentValue - totalCost : null;
+
+  // Latest lot P&L % (for P&L % by Date tile)
+  const latestHeld = [...heldRows].sort((a, b) => b['ACQUISITION DATE'].localeCompare(a['ACQUISITION DATE']))[0];
+  let lastLotPct = null;
+  if (latestHeld && priceInr > 0) {
+    const qty = num(latestHeld['BALANCE QUANTITY']);
+    const buyEur = num(latestHeld['PURCHASE PRICE (EURO)']);
+    const buyRate = num(latestHeld['BUY EXCHANGE RATE (EURO>INR)']);
+    const cost = (num(latestHeld['PURCHASE PRICE (INR)']) || buyEur * buyRate) * qty;
+    if (cost > 0) lastLotPct = ((qty * priceInr - cost) / cost) * 100;
+  }
+  const pnlPct = totalCost > 0 && totalPnL !== null ? (totalPnL / totalCost) * 100 : null;
+
+  // Break-even: SAP EUR price / EUR→INR rate at which cost == current value
+  const avgCostInr = totalQtyHeld > 0 ? totalCost / totalQtyHeld : 0;
+  const beEur  = (avgCostInr > 0 && rate > 0)     ? avgCostInr / rate     : null;
+  const beRate = (avgCostInr > 0 && priceEur > 0)  ? avgCostInr / priceEur : null;
+
+  let totalRealised = 0;
+  soldRows.forEach(r => totalRealised += num(r['CAPITAL GAIN (INR)']));
+
+  // Group held quantities by plan category
+  const ownSapQty  = heldRows.filter(r => r['PLAN TYPE'] === 'Own SAP' || r['PLAN TYPE'] === 'Own SAP Dividend')
+                              .reduce((s, r) => s + num(r['BALANCE QUANTITY']), 0);
+  const moveSapQty = heldRows.filter(r => r['PLAN TYPE'] === 'Move SAP' || r['PLAN TYPE'] === 'Move SAP Dividend')
+                              .reduce((s, r) => s + num(r['BALANCE QUANTITY']), 0);
+
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi">
+      <div class="label">Shares Held</div>
+      <div class="value" style="font-size:16px">${fmt(totalQtyHeld, 4)}</div>
+      <div class="sub">
+        Own SAP: <strong>${fmt(ownSapQty, 4)}</strong><br>
+        Move SAP: <strong>${fmt(moveSapQty, 4)}</strong>
+      </div>
+    </div>
+    <div class="kpi">
+      <div class="label">Total Cost Basis</div>
+      <div class="value">${fmtInr(totalCost)}</div>
+      <div class="sub">Avg cost: ${totalQtyHeld > 0 ? fmtInr(totalCost / totalQtyHeld) : '—'}/share</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Current Value</div>
+      <div class="value ${priceInr > 0 ? '' : 'neu'}">${priceInr > 0 ? fmtInr(totalCurrentValue) : '—'}</div>
+      <div class="sub">${priceInr > 0 ? fmtEur(priceEur) + ' × ₹' + fmt(rate) : 'Click ⟳ Refresh Prices above'}</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Break-even</div>
+      <div class="value neu" style="font-size:16px">${beEur !== null ? fmtEur(beEur) : '—'}</div>
+      <div class="sub">
+        ${beRate !== null ? 'Rate: ₹' + fmt(beRate) + '/€' : 'Enter price + rate above'}
+        ${(() => {
+          if (beEur === null || priceEur <= 0) return '';
+          const diff = priceEur - beEur;
+          const cls = diff >= 0 ? 'pos' : 'neg';
+          const arrow = diff >= 0 ? '▲' : '▼';
+          const label = diff >= 0 ? ' above' : ' below';
+          return '<br><span class="' + cls + '">' + arrow + ' €' + fmt(Math.abs(diff)) + label + '</span>';
+        })()}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('kpis-summary').innerHTML = `
+    <div class="kpi">
+      <div class="label">Realised Capital Gain</div>
+      <div class="value ${colorClass(totalRealised)}">${fmtInr(totalRealised)}</div>
+      <div class="sub">${soldRows.length} sell transactions</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Total P&L (Realised + Unrealised)</div>
+      <div class="value ${totalPnL !== null ? colorClass(totalPnL + totalRealised) : colorClass(totalRealised)}">
+        ${totalPnL !== null ? fmtInr(totalPnL + totalRealised) : fmtInr(totalRealised)}
+      </div>
+      <div class="sub">${totalPnL !== null ? '' : 'Unrealised not included'}</div>
+    </div>
+  `;
+  // Update static sparkline tiles
+  const pvEl = document.getElementById('spark-pnl-value');
+  const psEl = document.getElementById('spark-pnl-sub');
+  const plEl = document.getElementById('spark-lot-value');
+  if (pvEl) { pvEl.textContent = totalPnL !== null ? fmtInr(totalPnL) : '—'; pvEl.className = 'value ' + (totalPnL !== null ? colorClass(totalPnL) : 'neu'); }
+  if (psEl) { psEl.textContent = pnlPct !== null ? fmt(pnlPct, 2) + '%' : ''; }
+  if (plEl) { plEl.textContent = lastLotPct !== null ? (lastLotPct >= 0 ? '+' : '') + fmt(lastLotPct, 2) + '%' : '—'; plEl.className = 'value ' + (lastLotPct !== null ? colorClass(lastLotPct) : 'neu'); }
+
+  requestAnimationFrame(() => {
+    try {
+      const liveInr = num(document.getElementById('currentPriceEur').value) *
+                      num(document.getElementById('currentRate').value);
+      if (liveInr <= 0) return;
+      const _heldForSpark = rows.filter(isHeld);
+      drawSparkline(_heldForSpark, liveInr, 'pnl-spark');
+      drawSparklinePerLot(_heldForSpark, liveInr, 'pnl-spark-2');
+    } catch(e) { console.warn('Sparkline draw error:', e); }
+  });
+}
+
+function drawSparkline(heldRows, priceInr, canvasId) {
+  const canvas = document.getElementById(canvasId || 'pnl-spark');
+  if (!canvas || !canvas.parentElement) return;
+  const dpr = window.devicePixelRatio || 1;
+  const parentW = canvas.parentElement.getBoundingClientRect().width;
+  const W = (parentW > 40 ? parentW - 36 : 190);
+  const H = 40;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  if (priceInr <= 0) {
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '11px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Enter price to preview', W / 2, H / 2 + 4);
+    return;
+  }
+
+  // Build cumulative overall P&L % — same logic as full chart
+  const sorted = [...heldRows]
+    .map(r => {
+      const qty = num(r['BALANCE QUANTITY']);
+      const buyEur = num(r['PURCHASE PRICE (EURO)']);
+      const buyRate = num(r['BUY EXCHANGE RATE (EURO>INR)']);
+      const cost = (num(r['PURCHASE PRICE (INR)']) || buyEur * buyRate) * qty;
+      return { date: r['ACQUISITION DATE'].slice(0, 10), cost, val: qty * priceInr };
+    })
+    .filter(r => r.cost > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  let cumCost = 0, cumVal = 0;
+  const points = sorted.map(r => {
+    cumCost += r.cost;
+    cumVal  += r.val;
+    return cumCost > 0 ? ((cumVal - cumCost) / cumCost) * 100 : 0;
+  });
+
+  if (points.length < 2) {
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '11px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Not enough data', W / 2, H / 2 + 4);
+    return;
+  }
+
+  const PAD = 4;
+  const minV = Math.min(0, ...points);
+  const maxV = Math.max(0, ...points);
+  const range = maxV - minV || 1;
+  const toY = v => PAD + (H - PAD * 2) - ((v - minV) / range) * (H - PAD * 2);
+  const toX = i => PAD + (i / (points.length - 1)) * (W - PAD * 2);
+
+  // Zero line
+  const zY = toY(0);
+  ctx.strokeStyle = '#d1d9e0';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 2]);
+  ctx.beginPath(); ctx.moveTo(PAD, zY); ctx.lineTo(W - PAD, zY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Area fill
+  ctx.beginPath();
+  ctx.moveTo(toX(0), zY);
+  points.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.lineTo(toX(points.length - 1), zY);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(100,130,200,0.15)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line — segment by segment coloured by value
+  for (let i = 1; i < points.length; i++) {
+    ctx.beginPath();
+    ctx.moveTo(toX(i - 1), toY(points[i - 1]));
+    ctx.lineTo(toX(i), toY(points[i]));
+    ctx.strokeStyle = points[i] >= 0 ? '#16a34a' : '#dc2626';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Last value dot + label
+  const lastPct = points[points.length - 1];
+  const lx = toX(points.length - 1), ly = toY(lastPct);
+  ctx.beginPath();
+  ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+  ctx.fillStyle = lastPct >= 0 ? '#16a34a' : '#dc2626';
+  ctx.fill();
+  ctx.font = 'bold 11px system-ui';
+  ctx.fillStyle = lastPct >= 0 ? '#16a34a' : '#dc2626';
+  ctx.textAlign = lx > W * 0.7 ? 'right' : 'left';
+  ctx.fillText((lastPct >= 0 ? '+' : '') + fmt(lastPct, 1) + '%', lx + (lx > W * 0.7 ? -5 : 5), ly - 4);
+}
+
+function changeHeldPage(dir) {
+  heldPage += dir;
+  renderHeld();
+}
+
+function sortHeld(col) {
+  if (heldSortCol === col) heldSortAsc = !heldSortAsc;
+  else { heldSortCol = col; heldSortAsc = true; }
+  renderHeld();
+}
+
+function updateSortIcons() {
+  const el = document.getElementById('sh-date');
+  if (el) el.textContent = heldSortAsc ? '▲' : '▼';
+}
+
+function renderHeld() {
+  const priceEur = num(document.getElementById('currentPriceEur').value);
+  const rate = num(document.getElementById('currentRate').value);
+  const priceInr = priceEur * rate;
+  const planFilter   = document.getElementById('held-plan-filter').value;
+  const statusFilter = document.getElementById('held-status-filter').value;
+
+  // Track original row index for edit/delete
+  let heldRows = rows.map((r, idx) => ({ r, idx })).filter(({ r }) => isHeld(r));
+  const totalLots = heldRows.length;
+  if (planFilter) heldRows = heldRows.filter(({ r }) => r['PLAN TYPE'] === planFilter);
+
+  if (statusFilter) {
+    heldRows = heldRows.filter(({ r }) => {
+      const qty          = num(r['BALANCE QUANTITY']);
+      const buyEur       = num(r['PURCHASE PRICE (EURO)']);
+      const buyRate      = num(r['BUY EXCHANGE RATE (EURO>INR)']);
+      const costPerShare = num(r['PURCHASE PRICE (INR)']) || buyEur * buyRate;
+      const totalCost    = qty * costPerShare;
+      const currValue    = priceInr > 0 ? qty * priceInr : null;
+      const pnl          = currValue !== null ? currValue - totalCost : null;
+      if (statusFilter === 'HOLD')   return pnl === null;
+      if (statusFilter === 'PROFIT') return pnl !== null && pnl >= 0;
+      if (statusFilter === 'LOSS')   return pnl !== null && pnl < 0;
+      return true;
+    });
+  }
+
+  const dir = heldSortAsc ? 1 : -1;
+  heldRows = [...heldRows].sort((a, b) =>
+    dir * a.r['ACQUISITION DATE'].localeCompare(b.r['ACQUISITION DATE'])
+  );
+
+  updateSortIcons();
+  document.getElementById('held-count').textContent =
+    planFilter ? `${heldRows.length} of ${totalLots} lots` : `${totalLots} lots`;
+
+  let sumCost = 0, sumValue = 0, sumQty = 0;
+  heldRows.forEach(({ r }) => {
+    const qty = num(r['BALANCE QUANTITY']);
+    const costPerShare = num(r['PURCHASE PRICE (INR)']) || num(r['PURCHASE PRICE (EURO)']) * num(r['BUY EXCHANGE RATE (EURO>INR)']);
+    sumCost  += qty * costPerShare;
+    sumValue += priceInr > 0 ? qty * priceInr : 0;
+    sumQty   += qty;
+  });
+  const sumPnL = priceInr > 0 ? sumValue - sumCost : null;
+  const sumPnLPct = sumCost > 0 && sumPnL !== null ? (sumPnL / sumCost) * 100 : null;
+
+  const summaryEl = document.getElementById('held-summary');
+  if (heldRows.length > 0) {
+    summaryEl.style.display = 'flex';
+    summaryEl.innerHTML = `
+      <span style="color:var(--muted)">Filter: <strong style="color:var(--text)">${planFilter || 'All'}</strong></span>
+      <span style="color:var(--muted)">Total Qty: <strong style="color:var(--text)">${fmt(sumQty,4)}</strong></span>
+      <span style="color:var(--muted)">Cost Basis: <strong style="color:var(--text)">${fmtInr(sumCost)}</strong></span>
+      <span style="color:var(--muted)">Current Value: <strong style="color:var(--text)">${sumPnL !== null ? fmtInr(sumValue) : '—'}</strong></span>
+      <span style="color:var(--muted)">P&L: <strong class="${sumPnL !== null ? colorClass(sumPnL) : 'neu'}">${sumPnL !== null ? fmtInr(sumPnL) + ' (' + fmt(sumPnLPct,2) + '%)' : '—'}</strong></span>
+    `;
+  } else {
+    summaryEl.style.display = 'none';
+  }
+
+  const tbody = document.querySelector('#held-table tbody');
+  if (heldRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="13" class="empty">No held positions found</td></tr>';
+    document.getElementById('held-page-info').textContent = '';
+    document.getElementById('held-prev').disabled = true;
+    document.getElementById('held-next').disabled = true;
+    return;
+  }
+
+  const totalFiltered = heldRows.length;
+  const pages = Math.max(1, Math.ceil(totalFiltered / heldPageSize));
+  if (heldPage >= pages) heldPage = pages - 1;
+  const slice = heldRows.slice(heldPage * heldPageSize, (heldPage + 1) * heldPageSize);
+  document.getElementById('held-page-info').textContent =
+    `${heldPage * heldPageSize + 1}–${Math.min((heldPage + 1) * heldPageSize, totalFiltered)} of ${totalFiltered}`;
+  document.getElementById('held-prev').disabled = heldPage === 0;
+  document.getElementById('held-next').disabled = heldPage >= pages - 1;
+
+  const planOpts = ['Own SAP','Own SAP Dividend','Move SAP','Move SAP Dividend']
+    .map(p => `<option value="${p}" ${p === '' ? '' : ''}>` + p + '</option>').join('');
+
+  tbody.innerHTML = slice.map(({ r, idx }, i) => {
+    const qty = num(r['BALANCE QUANTITY']);
+    const buyEur = num(r['PURCHASE PRICE (EURO)']);
+    const buyRate = num(r['BUY EXCHANGE RATE (EURO>INR)']);
+    const costPerShare = num(r['PURCHASE PRICE (INR)']) || buyEur * buyRate;
+    const totalCost = qty * costPerShare;
+    const currValue = priceInr > 0 ? qty * priceInr : null;
+    const pnl = currValue !== null ? currValue - totalCost : null;
+    const pnlP = totalCost > 0 && pnl !== null ? (pnl / totalCost) * 100 : null;
+    const dateVal = normalizeDate(r['ACQUISITION DATE']);
+
+    const planSelect = `<select data-field="PLAN TYPE" class="edit-input">
+      ${['Own SAP','Own SAP Dividend','Move SAP','Move SAP Dividend']
+        .map(p => `<option value="${p}"${r['PLAN TYPE']===p?' selected':''}>${p}</option>`).join('')}
+    </select>`;
+
+    return `<tr data-rowidx="${idx}">
+      <td>${heldPage * heldPageSize + i + 1}</td>
+      <td>${heldEditMode ? `<input type="date" data-field="ACQUISITION DATE" class="edit-input" value="${dateVal}" style="min-width:130px">` : dateVal}</td>
+      <td>${heldEditMode ? planSelect : `<span class="tag">${r['PLAN TYPE'] || '—'}</span>`}</td>
+      <td>${heldEditMode ? `<input type="number" data-field="PURCHASE PRICE (EURO)" class="edit-input" value="${buyEur}" step="0.00001">` : fmtEur(buyEur)}</td>
+      <td>${heldEditMode
+        ? `<div style="display:flex;gap:4px;align-items:center">
+            <input type="number" data-field="BUY EXCHANGE RATE (EURO>INR)" class="edit-input" value="${buyRate || ''}" step="0.00001" style="min-width:80px">
+            <span onclick="flipRateToggle(this)" data-inv="0" title="Click to flip direction and convert value" style="cursor:pointer;background:var(--accent);color:#fff;border-radius:20px;padding:1px 6px;font-size:10px;font-weight:600;white-space:nowrap;flex-shrink:0">EUR→INR</span>
+          </div>`
+        : (buyRate ? fmt(buyRate) : '—')}</td>
+      <td>${fmtInr(costPerShare)}</td>
+      <td>${heldEditMode ? `<input type="number" data-field="BALANCE QUANTITY" class="edit-input" value="${qty}" step="0.000001">` : fmt(qty, 6)}</td>
+      <td>${fmtInr(totalCost)}</td>
+      <td>${priceInr > 0 ? fmtInr(priceInr) : '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${currValue !== null ? fmtInr(currValue) : '<span style="color:var(--muted)">—</span>'}</td>
+      <td class="${pnl !== null ? colorClass(pnl) : ''}">${pnl !== null ? fmtInr(pnl) : '—'}</td>
+      <td class="${pnlP !== null ? colorClass(pnlP) : ''}">${pnlP !== null ? fmt(pnlP, 2) + '%' : '—'}</td>
+      <td><span class="badge ${pnl === null ? 'hold' : pnl >= 0 ? 'profit' : 'loss'}">${pnl === null ? 'HOLD' : pnl >= 0 ? 'PROFIT' : 'LOSS'}</span></td>
+      ${heldEditMode ? `<td><button onclick="deleteRow(${idx})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px" title="Delete row">🗑</button></td>` : ''}
+    </tr>`;
+  }).join('');
+}
+
+function renderHistory() {
+  const search = document.getElementById('hist-search').value.toLowerCase();
+  const filter = document.getElementById('hist-filter').value;
+
+  // Track original row index for edit/delete
+  let soldRows = rows.map((r, idx) => ({ r, idx })).filter(({ r }) => isSold(r));
+
+  if (search) {
+    soldRows = soldRows.filter(({ r }) =>
+      Object.values(r).some(v => String(v).toLowerCase().includes(search))
+    );
+  }
+  if (filter) {
+    soldRows = soldRows.filter(({ r }) => r['CAPITAL GAIN TYPE'] === filter);
+  }
+
+  document.getElementById('hist-count').textContent = soldRows.length + ' rows';
+
+  const total = soldRows.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (histPage >= pages) histPage = pages - 1;
+
+  const slice = soldRows.slice(histPage * PAGE_SIZE, (histPage + 1) * PAGE_SIZE);
+
+  document.getElementById('hist-page-info').textContent =
+    total > 0 ? `${histPage * PAGE_SIZE + 1}–${Math.min((histPage + 1) * PAGE_SIZE, total)} of ${total}` : '';
+  document.getElementById('hist-prev').disabled = histPage === 0;
+  document.getElementById('hist-next').disabled = histPage >= pages - 1;
+
+  const tbody = document.querySelector('#hist-table tbody');
+  if (slice.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="14" class="empty">No sold transactions found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = slice.map(({ r, idx }, i) => {
+    const gain = num(r['CAPITAL GAIN (INR)']);
+    const gainType = r['CAPITAL GAIN TYPE'] || '';
+    const isStcg = gainType.toLowerCase().includes('short');
+    const sellDateVal = normalizeDate(r['SELL DATE']);
+    return `<tr data-rowidx="${idx}">
+      <td>${histPage * PAGE_SIZE + i + 1}</td>
+      <td>${normalizeDate(r['ACQUISITION DATE'])}</td>
+      <td>${r['Activity'] || '—'}</td>
+      <td><span class="tag">${r['PLAN TYPE'] || '—'}</span></td>
+      <td>${num(r['PURCHASE PRICE (EURO)']) ? fmtEur(num(r['PURCHASE PRICE (EURO)'])) : '—'}</td>
+      <td>${num(r['PURCHASE PRICE (INR)']) ? fmtInr(num(r['PURCHASE PRICE (INR)'])) : '—'}</td>
+      <td>${histEditMode ? `<input type="date" data-field="SELL DATE" class="edit-input" value="${sellDateVal}" style="min-width:130px">` : sellDateVal}</td>
+      <td>${histEditMode ? `<input type="number" data-field="SELL PRICE (EURO)" class="edit-input" value="${num(r['SELL PRICE (EURO)'])}" step="0.00001">` : (num(r['SELL PRICE (EURO)']) ? fmtEur(num(r['SELL PRICE (EURO)'])) : '—')}</td>
+      <td>${histEditMode ? `<input type="number" data-field="SELL PRICE (INR)" class="edit-input" value="${num(r['SELL PRICE (INR)'])}" step="0.01">` : (num(r['SELL PRICE (INR)']) ? fmtInr(num(r['SELL PRICE (INR)'])) : '—')}</td>
+      <td>${histEditMode ? `<input type="number" data-field="SELL QUANTITY" class="edit-input" value="${num(r['SELL QUANTITY'])}" step="0.000001">` : fmt(num(r['SELL QUANTITY']), 6)}</td>
+      <td>${fmtInr(num(r['TOTAL SELL PRICE (INR)']))}</td>
+      <td>${fmtInr(num(r['TOTAL PURCHASE COST (INR)']))}</td>
+      <td class="${colorClass(gain)}">${histEditMode ? `<input type="number" data-field="CAPITAL GAIN (INR)" class="edit-input" value="${gain}" step="0.01">` : fmtInr(gain)}</td>
+      <td><span class="badge ${isStcg ? 'stcg' : 'ltcg'}">${isStcg ? 'STCG' : 'LTCG'}</span></td>
+      ${histEditMode ? `<td><button onclick="deleteRow(${idx})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px" title="Delete row">🗑</button></td>` : ''}
+    </tr>`;
+  }).join('');
+}
+
+function changePage(dir) {
+  histPage += dir;
+  renderHistory();
+}
+
+// ─── P&L Chart ───────────────────────────────────────────────────────────────
+function drawSparklinePerLot(heldRows, priceInr, canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !canvas.parentElement) return null;
+  const dpr = window.devicePixelRatio || 1;
+  const parentW = canvas.parentElement.getBoundingClientRect().width;
+  const W = (parentW > 40 ? parentW - 36 : 190);
+  const H = 40;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  if (priceInr <= 0) {
+    ctx.fillStyle = '#9ca3af'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Enter price to preview', W / 2, H / 2 + 4); return null;
+  }
+
+  const points = [...heldRows]
+    .map(r => {
+      const qty = num(r['BALANCE QUANTITY']);
+      const buyEur = num(r['PURCHASE PRICE (EURO)']);
+      const buyRate = num(r['BUY EXCHANGE RATE (EURO>INR)']);
+      const cost = (num(r['PURCHASE PRICE (INR)']) || buyEur * buyRate) * qty;
+      return { date: r['ACQUISITION DATE'].slice(0,10), pct: cost > 0 ? ((qty * priceInr - cost) / cost) * 100 : null };
+    })
+    .filter(p => p.pct !== null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (points.length < 2) {
+    ctx.fillStyle = '#9ca3af'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Not enough data', W / 2, H / 2 + 4); return null;
+  }
+
+  const PAD = 4;
+  const vals = points.map(p => p.pct);
+  const minV = Math.min(0, ...vals), maxV = Math.max(0, ...vals);
+  const range = maxV - minV || 1;
+  const toY = v => PAD + (H - PAD*2) - ((v - minV) / range) * (H - PAD*2);
+  const toX = i => PAD + (i / (points.length - 1)) * (W - PAD*2);
+
+  // Zero line
+  ctx.strokeStyle = '#d1d9e0'; ctx.lineWidth = 1; ctx.setLineDash([3,2]);
+  ctx.beginPath(); ctx.moveTo(PAD, toY(0)); ctx.lineTo(W-PAD, toY(0)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Segment-coloured line
+  for (let i = 1; i < points.length; i++) {
+    ctx.beginPath();
+    ctx.moveTo(toX(i-1), toY(points[i-1].pct));
+    ctx.lineTo(toX(i),   toY(points[i].pct));
+    ctx.strokeStyle = points[i].pct >= 0 ? '#16a34a' : '#dc2626';
+    ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // Dots
+  points.forEach((p, i) => {
+    ctx.beginPath(); ctx.arc(toX(i), toY(p.pct), 2.5, 0, Math.PI*2);
+    ctx.fillStyle = p.pct >= 0 ? '#16a34a' : '#dc2626'; ctx.fill();
+  });
+
+  // Last value label
+  const lp = points[points.length-1];
+  const lx = toX(points.length-1), ly = toY(lp.pct);
+  ctx.font = 'bold 11px system-ui';
+  ctx.fillStyle = lp.pct >= 0 ? '#16a34a' : '#dc2626';
+  ctx.textAlign = lx > W * 0.7 ? 'right' : 'left';
+  ctx.fillText((lp.pct >= 0 ? '+' : '') + fmt(lp.pct, 1) + '%', lx + (lx > W*0.7 ? -5 : 5), ly - 4);
+  return lp.pct;
+}
+
+function openPerLotChart() {
+  const priceEur = num(document.getElementById('currentPriceEur').value);
+  const rate     = num(document.getElementById('currentRate').value);
+  const priceInr = priceEur * rate;
+
+  if (priceInr <= 0) { status('Enter current SAP price and EUR→INR rate first.'); return; }
+
+  const points = rows.filter(isHeld)
+    .map(r => {
+      const qty = num(r['BALANCE QUANTITY']);
+      const buyEur = num(r['PURCHASE PRICE (EURO)']);
+      const buyRate = num(r['BUY EXCHANGE RATE (EURO>INR)']);
+      const cost = (num(r['PURCHASE PRICE (INR)']) || buyEur * buyRate) * qty;
+      return { date: r['ACQUISITION DATE'].slice(0,10), pnlPct: cost > 0 ? ((qty*priceInr - cost)/cost)*100 : null };
+    })
+    .filter(p => p.pnlPct !== null)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (!points.length) { status('No held positions with price data to chart.'); return; }
+
+  // Reuse modal, swap title, draw
+  document.querySelector('#pnl-modal h2').textContent = 'P&L % by Acquisition Date (per lot)';
+  document.getElementById('pnl-modal').style.display = 'flex';
+
+  const canvas = document.getElementById('pnl-canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 800, H = 340;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+
+  const PAD = { top:20, right:20, bottom:60, left:60 };
+  const cW = W - PAD.left - PAD.right, cH = H - PAD.top - PAD.bottom;
+  const vals = points.map(p => p.pnlPct);
+  const minV = Math.min(0,...vals), maxV = Math.max(0,...vals);
+  const range = maxV - minV || 1;
+  const toY = v => PAD.top + cH - ((v-minV)/range)*cH;
+  const toX = i => PAD.left + (i/(points.length-1||1))*cW;
+
+  ctx.font = '11px system-ui'; ctx.fillStyle = '#6b7280'; ctx.textAlign = 'right';
+  for (let t = 0; t <= 5; t++) {
+    const v = minV + (range/5)*t, y = toY(v);
+    ctx.strokeStyle = '#d1d9e0'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left+cW, y); ctx.stroke();
+    ctx.fillText(fmt(v,1)+'%', PAD.left-6, y+4);
+  }
+
+  ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(PAD.left, toY(0)); ctx.lineTo(PAD.left+cW, toY(0)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  for (let i = 1; i < points.length; i++) {
+    ctx.beginPath();
+    ctx.moveTo(toX(i-1), toY(points[i-1].pnlPct));
+    ctx.lineTo(toX(i),   toY(points[i].pnlPct));
+    ctx.strokeStyle = points[i].pnlPct >= 0 ? '#16a34a' : '#dc2626';
+    ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  const step = Math.ceil(points.length / 12);
+  points.forEach((p, i) => {
+    const x = toX(i), y = toY(p.pnlPct);
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI*2);
+    ctx.fillStyle = p.pnlPct >= 0 ? '#16a34a' : '#dc2626'; ctx.fill();
+    if (i % step === 0 || i === points.length-1) {
+      ctx.save(); ctx.translate(x, PAD.top+cH+10); ctx.rotate(-Math.PI/4);
+      ctx.textAlign = 'right'; ctx.fillStyle = '#6b7280'; ctx.font = '10px system-ui';
+      ctx.fillText(p.date, 0, 0); ctx.restore();
+    }
+  });
+}
+
+function openPnLChart() {
+  const priceEur = num(document.getElementById('currentPriceEur').value);
+  const rate     = num(document.getElementById('currentRate').value);
+  const priceInr = priceEur * rate;
+
+  if (priceInr <= 0) {
+    status('Enter current SAP price and EUR→INR rate first, then click the chart tile.');
+    return;
+  }
+
+  // Sort held rows by date, compute cumulative overall P&L % at each acquisition date
+  const held = rows
+    .filter(isHeld)
+    .map(r => {
+      const qty          = num(r['BALANCE QUANTITY']);
+      const buyEur       = num(r['PURCHASE PRICE (EURO)']);
+      const buyRate      = num(r['BUY EXCHANGE RATE (EURO>INR)']);
+      const costPerShare = num(r['PURCHASE PRICE (INR)']) || buyEur * buyRate;
+      return { date: r['ACQUISITION DATE'].slice(0, 10), cost: qty * costPerShare, value: qty * priceInr };
+    })
+    .filter(r => r.cost > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (held.length === 0) {
+    status('No held positions with price data to chart.');
+    return;
+  }
+
+  // Accumulate cost and value lot by lot
+  let cumCost = 0, cumValue = 0;
+  const points = held.map(r => {
+    cumCost  += r.cost;
+    cumValue += r.value;
+    const pnlPct = cumCost > 0 ? ((cumValue - cumCost) / cumCost) * 100 : 0;
+    return { date: r.date, pnlPct };
+  });
+
+  const modal = document.getElementById('pnl-modal');
+  modal.style.display = 'flex';
+
+  const canvas = document.getElementById('pnl-canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 800;
+  const H = 340;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const PAD = { top: 20, right: 20, bottom: 60, left: 60 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  const vals = points.map(p => p.pnlPct);
+  const minV = Math.min(0, ...vals);
+  const maxV = Math.max(0, ...vals);
+  const range = maxV - minV || 1;
+
+  const toY = v => PAD.top + cH - ((v - minV) / range) * cH;
+  const toX = i => PAD.left + (i / (points.length - 1 || 1)) * cW;
+
+  // Grid lines + Y labels
+  ctx.font = '11px system-ui';
+  ctx.fillStyle = '#6b7280';
+  ctx.textAlign = 'right';
+  const ticks = 5;
+  for (let t = 0; t <= ticks; t++) {
+    const v = minV + (range / ticks) * t;
+    const y = toY(v);
+    ctx.strokeStyle = '#d1d9e0';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    ctx.fillText(fmt(v, 1) + '%', PAD.left - 6, y + 4);
+  }
+
+  // Zero line
+  const zeroY = toY(0);
+  ctx.strokeStyle = '#9ca3af';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(PAD.left, zeroY); ctx.lineTo(PAD.left + cW, zeroY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Area fill
+  ctx.beginPath();
+  ctx.moveTo(toX(0), zeroY);
+  points.forEach((p, i) => ctx.lineTo(toX(i), toY(p.pnlPct)));
+  ctx.lineTo(toX(points.length - 1), zeroY);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + cH);
+  grad.addColorStop(0, 'rgba(22,163,74,0.18)');
+  grad.addColorStop(1, 'rgba(220,38,38,0.10)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  points.forEach((p, i) => i === 0 ? ctx.moveTo(toX(i), toY(p.pnlPct)) : ctx.lineTo(toX(i), toY(p.pnlPct)));
+  ctx.strokeStyle = '#1a6fd4';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Dots + X labels
+  const step = Math.ceil(points.length / 12);
+  points.forEach((p, i) => {
+    const x = toX(i), y = toY(p.pnlPct);
+    ctx.beginPath();
+    ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = p.pnlPct >= 0 ? '#16a34a' : '#dc2626';
+    ctx.fill();
+
+    if (i % step === 0 || i === points.length - 1) {
+      ctx.save();
+      ctx.translate(x, PAD.top + cH + 10);
+      ctx.rotate(-Math.PI / 4);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px system-ui';
+      ctx.fillText(p.date, 0, 0);
+      ctx.restore();
+    }
+  });
+
+  // Final overall % annotation on last point
+  const last = points[points.length - 1];
+  const lx = toX(points.length - 1);
+  const ly = toY(last.pnlPct);
+  const sign = last.pnlPct >= 0 ? '+' : '';
+  const annotation = `Overall: ${sign}${fmt(last.pnlPct, 2)}%`;
+  ctx.font = 'bold 12px system-ui';
+  ctx.fillStyle = last.pnlPct >= 0 ? '#16a34a' : '#dc2626';
+  ctx.textAlign = lx > W * 0.7 ? 'right' : 'left';
+  ctx.fillText(annotation, lx + (lx > W * 0.7 ? -10 : 10), ly - 10);
+}
+
+function closePnLChart() {
+  document.getElementById('pnl-modal').style.display = 'none';
+  document.querySelector('#pnl-modal h2').textContent = 'Overall Unrealised P&L % by Acquisition Date';
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+(function() {
+  fetchServerDir();
+  const origin = window.location.href.replace(/[^/]*$/, '');
+  const saved = loadFromStorage();
+  if (saved && saved.length > 0) {
+    rows = saved;
+    renderAll();
+    status('Loaded ' + rows.length + ' rows from browser storage. Fetching live prices…');
+    fetchLivePrices();
+  } else {
+    // Check if localStorage is even accessible
+    try {
+      localStorage.setItem('_test', '1');
+      localStorage.removeItem('_test');
+      status('No saved data found — localStorage is working but empty. Load your CSV file using the picker above. (Origin: ' + origin + ')');
+    } catch(e) {
+      status('localStorage unavailable in this browser/mode (' + e.message + '). Load your CSV each time, or use a local server.');
+    }
+  }
+})();
+</script>
+</body>
+</html>
