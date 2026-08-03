@@ -162,10 +162,6 @@
       <button class="btn red" onclick="clearStorage()">Clear Storage</button>
     </div>
     <div class="sep"></div>
-    <div style="display:flex;flex-direction:column;gap:4px">
-      <label>&nbsp;</label>
-      <button class="btn" style="background:#7c3aed" onclick="shareApp()">⬆ Share App</button>
-    </div>
   </div>
 
   <div id="status-bar"></div>
@@ -477,7 +473,6 @@
             <li>🔀 Merge CSV — add new rows, skip duplicates</li>
             <li>📤 Export CSV — timestamped backup</li>
             <li>🗑 Clear Storage — wipe browser data</li>
-            <li>⬆ Share App — copies GitHub link</li>
           </ul>
         </div>
       </div>
@@ -515,7 +510,7 @@
         </div>
         <div style="border-bottom:1px solid var(--border);padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">How do I share this app?</div>
-          <div style="color:var(--muted)">Click ⬆ Share App — it copies the GitHub link to your clipboard. Recipients visit the link to access their own fresh instance with no data.</div>
+          <div style="color:var(--muted)">Visit <a href='https://github.com/prasadjalsa/sapshareprice' target='_blank'>github.com/prasadjalsa/sapshareprice</a> to find the app.</div>
         </div>
         <div style="padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">Can I edit mistakes in my data?</div>
@@ -895,23 +890,6 @@ function fmt(n, dec=2) { return n.toLocaleString('en-IN', {minimumFractionDigits
 function fmtEur(n) { return '€' + fmt(n); }
 function fmtInr(n) { return '₹' + fmt(n); }
 function status(msg) { document.getElementById('status-bar').textContent = msg; }
-
-
-
-// ─── Share App ────────────────────────────────────────────────────────────────
-function shareApp() {
-  const url = 'https://github.com/prasadjalsa/sapshareprice';
-  navigator.clipboard.writeText(url).then(() => {
-    status('GitHub link copied to clipboard: ' + url);
-    const btn = document.querySelector('[onclick="shareApp()"]');
-    if (btn) { const orig = btn.textContent; btn.textContent = '✓ Link Copied!'; setTimeout(() => btn.textContent = orig, 2000); }
-  }).catch(() => {
-    // Fallback if clipboard not available
-    prompt('Copy this GitHub link to share:', url);
-  });
-}
-
-
 
 function colorClass(n) { return n > 0 ? 'pos' : n < 0 ? 'neg' : 'neu'; }
 
