@@ -808,6 +808,11 @@ function addRow() {
 }
 
 // ─── Log Sell (FIFO) ──────────────────────────────────────────────────────────
+function capitalGainType(acqStr, sellStr) {
+  const diffDays = (new Date(sellStr) - new Date(acqStr.split('T')[0])) / 86400000;
+  return diffDays > 730 ? 'Long Term Capital Gain' : 'Short Term Capital Gain';
+}
+
 function logSell() {
   const sellDateRaw  = document.getElementById('f-sell-date').value;
   const sellPriceEur = parseFloat(document.getElementById('f-sell-price-eur').value);
@@ -865,10 +870,6 @@ function logSell() {
     }
   });
 
-  function capitalGainType(acqStr, sellStr) {
-    const diffDays = (new Date(sellStr) - new Date(acqStr.split('T')[0])) / 86400000;
-    return diffDays > 730 ? 'Long Term Capital Gain' : 'Short Term Capital Gain';
-  }
 
   const newSellRows = [];
   for (const plan of consumePlan) {
