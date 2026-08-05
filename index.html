@@ -941,10 +941,10 @@ function previewSell() {
   const feesEurTotal = parseFloat(document.getElementById('f-sell-fees-eur').value) || 0;
 
   if (!sellDateRaw || isNaN(sellPriceEur) || isNaN(sellQtyTotal) || sellQtyTotal <= 0) {
-    status('Please fill Sell Date, Sell Price (EUR), and Quantity before previewing.'); return;
+    alert('Please fill:\n• Sell Date\n• Sell Price (EUR)\n• Quantity to Sell\n\nbefore clicking Preview Sell.'); return;
   }
   if (!sellRate || sellRate <= 0) {
-    status('Please enter a valid Sell Exchange Rate before previewing.'); return;
+    alert('Please enter a valid Sell Exchange Rate before previewing.'); return;
   }
 
   const sellPriceInr = sellPriceEur * sellRate;
@@ -956,8 +956,11 @@ function previewSell() {
     .sort((a, b) => a.row['ACQUISITION DATE'].localeCompare(b.row['ACQUISITION DATE']));
 
   const totalHeld = heldLots.reduce((s, { row }) => s + num(row['BALANCE QUANTITY']), 0);
+  if (heldLots.length === 0) {
+    alert('No held shares found. Load your CSV first.'); return;
+  }
   if (sellQtyTotal > totalHeld + 1e-9) {
-    status(`Cannot preview: trying to sell ${sellQtyTotal} — only ${totalHeld.toFixed(6)} held.`); return;
+    alert(`Cannot preview: trying to sell ${sellQtyTotal} — only ${totalHeld.toFixed(6)} shares held.`); return;
   }
 
   // Build FIFO consume plan (read-only — no mutation)
