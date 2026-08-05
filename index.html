@@ -2134,19 +2134,29 @@ function renderSellTargetTile() {
     if (sub) sub.textContent = 'Use Good to Sell form to tag lots';
     return;
   }
-  let totalQty = 0, totalProceeds = 0, totalCost = 0, targetPrice = 0;
+  let totalQty = 0, totalProceeds = 0, targetPrice = 0;
   tagged.forEach(([idx, t]) => {
     const r = rows[parseInt(idx)];
     if (!r || !isHeld(r)) return;
     const tagQty = t.tagQty || num(r['BALANCE QUANTITY']);
-    const cps    = num(r['PURCHASE PRICE (INR)']) || num(r['PURCHASE PRICE (EURO)']) * num(r['BUY EXCHANGE RATE (EURO>INR)']);
     totalQty      += tagQty;
     totalProceeds += tagQty * t.targetPrice * (rate || 1);
-    totalCost     += tagQty * cps;
     targetPrice    = t.targetPrice;
   });
-  const pnl    = totalProceeds - totalCost;
-  const pnlPct = totalCost > 0 ? (pnl / totalCost) * 100 : null;
+
+  // Use overall portfolio avg cost (same basis as main P&L tiles)
+  const allHeld   = rows.filter(isHeld);
+  const allQty    = allHeld.reduce((s, r) => s + num(r['BALANCE QUANTITY']), 0);
+  const allCost   = allHeld.reduce((s, r) => {
+    const qty = num(r['BALANCE QUANTITY']);
+    const cps = num(r['PURCHASE PRICE (INR)']) || num(r['PURCHASE PRICE (EURO)']) * num(r['BUY EXCHANGE RATE (EURO>INR)']);
+    return s + qty * cps;
+  }, 0);
+  const avgCostInr = allQty > 0 ? allCost / allQty : 0;
+  const totalCostAtAvg = totalQty * avgCostInr;
+
+  const pnl    = totalProceeds - totalCostAtAvg;
+  const pnlPct = totalCostAtAvg > 0 ? (pnl / totalCostAtAvg) * 100 : null;
   if (el)  { el.textContent = rate > 0 ? fmtInr(totalProceeds) : `${fmt(totalQty,4)} shares tagged`; el.className = 'value ' + (pnl >= 0 ? 'pos' : 'neg'); }
   if (sub) sub.textContent = `${fmt(totalQty,4)} shares · €${fmt(totalProceeds && rate ? totalProceeds/rate/totalQty : targetPrice)} target · P&L: ${pnlPct !== null ? (pnl >= 0 ? '+' : '') + fmt(pnlPct,1) + '%' : '—'}`;
 }
