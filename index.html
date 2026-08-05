@@ -2134,17 +2134,23 @@ function renderSellTargetTile() {
     if (sub) sub.textContent = 'Use Good to Sell form to tag lots';
     return;
   }
-  let totalQty = 0, totalProceeds = 0, targetPrice = 0;
+  let totalQty = 0, totalProceeds = 0, totalLotCost = 0, targetPrice = 0;
   tagged.forEach(([idx, t]) => {
     const r = rows[parseInt(idx)];
     if (!r || !isHeld(r)) return;
     const tagQty = t.tagQty || num(r['BALANCE QUANTITY']);
+    const cps    = num(r['PURCHASE PRICE (INR)']) || num(r['PURCHASE PRICE (EURO)']) * num(r['BUY EXCHANGE RATE (EURO>INR)']);
     totalQty      += tagQty;
     totalProceeds += tagQty * t.targetPrice * (rate || 1);
+    totalLotCost  += tagQty * cps;  // actual purchase cost of these lots
     targetPrice    = t.targetPrice;
   });
 
-  // Use overall portfolio avg cost (same basis as main P&L tiles)
+  // Profit on the actual tagged lots (proceeds - their real purchase cost)
+  const lotProfit    = totalProceeds - totalLotCost;
+  const lotProfitPct = totalLotCost > 0 ? (lotProfit / totalLotCost) * 100 : null;
+
+  // Overall P&L % vs portfolio avg cost
   const allHeld   = rows.filter(isHeld);
   const allQty    = allHeld.reduce((s, r) => s + num(r['BALANCE QUANTITY']), 0);
   const allCost   = allHeld.reduce((s, r) => {
@@ -2152,13 +2158,19 @@ function renderSellTargetTile() {
     const cps = num(r['PURCHASE PRICE (INR)']) || num(r['PURCHASE PRICE (EURO)']) * num(r['BUY EXCHANGE RATE (EURO>INR)']);
     return s + qty * cps;
   }, 0);
-  const avgCostInr = allQty > 0 ? allCost / allQty : 0;
+  const avgCostInr     = allQty > 0 ? allCost / allQty : 0;
   const totalCostAtAvg = totalQty * avgCostInr;
+  const overallPnLPct  = totalCostAtAvg > 0 ? ((totalProceeds - totalCostAtAvg) / totalCostAtAvg) * 100 : null;
 
-  const pnl    = totalProceeds - totalCostAtAvg;
-  const pnlPct = totalCostAtAvg > 0 ? (pnl / totalCostAtAvg) * 100 : null;
-  if (el)  { el.textContent = rate > 0 ? fmtInr(totalProceeds) : `${fmt(totalQty,4)} shares tagged`; el.className = 'value ' + (pnl >= 0 ? 'pos' : 'neg'); }
-  if (sub) sub.textContent = `${fmt(totalQty,4)} shares · €${fmt(totalProceeds && rate ? totalProceeds/rate/totalQty : targetPrice)} target · P&L: ${pnlPct !== null ? (pnl >= 0 ? '+' : '') + fmt(pnlPct,1) + '%' : '—'}`;
+  if (el) {
+    el.textContent  = rate > 0 ? fmtInr(totalProceeds) : `${fmt(totalQty,4)} shares`;
+    el.className    = 'value ' + (lotProfit >= 0 ? 'pos' : 'neg');
+  }
+  if (sub) {
+    const profitStr  = lotProfitPct !== null ? `Profit: ${fmtInr(lotProfit)} (${(lotProfit>=0?'+':'')+fmt(lotProfitPct,1)}%)` : '—';
+    const overallStr = overallPnLPct !== null ? `vs avg: ${(overallPnLPct>=0?'+':'')+fmt(overallPnLPct,1)}%` : '';
+    sub.textContent  = `${fmt(totalQty,4)} shares · €${fmt(targetPrice)} · ${profitStr}${overallStr ? ' · '+overallStr : ''}`;
+  }
 }
 
 function openSellTargetSummary() {
