@@ -466,7 +466,7 @@
       <div style="display:flex;flex-direction:column;gap:16px">
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">1</span>
-          <div><strong>Load your CSV</strong><br><span style="color:var(--muted)">Click <b>Load CSV file</b> in the top bar and select your <code>SAP Share overall.csv</code>. Data saves to your browser automatically — no need to reload next time.</span></div>
+          <div><strong>Load your CSV</strong><br><span style="color:var(--muted)">In EASYShares go to <em>View Merged Purchase &amp; Sell Transactions</em> and download the CSV. Click <b>Load CSV file</b> in the top bar to import it. Data saves to your browser automatically.</span></div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">2</span>
@@ -482,10 +482,14 @@
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">5</span>
-          <div><strong>Log a sell</strong><br><span style="color:var(--muted)">Use <b>Log Sell</b> to record a sale. Lots are consumed oldest-first (FIFO). Capital gain is calculated automatically.</span></div>
+          <div><strong>Log a sell</strong><br><span style="color:var(--muted)">Use <b>Log Sell</b> to record a sale. Lots are consumed oldest-first (FIFO). Capital gain is calculated automatically. Use <b>Preview Sell</b> first to see the what-if outcome without committing.</span></div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">6</span>
+          <div><strong>Plan future sells</strong><br><span style="color:var(--muted)">Use <b>Good to Sell 🎯</b> to set a target price and quantity. The app auto-tags the oldest FIFO lots and shows projected proceeds, profit, and P&amp;L % in the tile.</span></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">7</span>
           <div><strong>Backup your data</strong><br><span style="color:var(--muted)">Click <b>Export CSV</b> regularly to save a timestamped backup. Your data lives in this browser — clearing browser data will erase it.</span></div>
         </div>
       </div>
@@ -509,10 +513,21 @@
             <li>📊 Shares Held (Own SAP + Move SAP breakdown)</li>
             <li>📊 Total Cost Basis &amp; avg cost/share</li>
             <li>📊 Current Value at live price</li>
-            <li>📊 Unrealised P&amp;L + cumulative chart</li>
-            <li>📊 P&amp;L % by Date + per-lot chart</li>
+            <li>📊 Unrealised P&amp;L + cumulative chart (click)</li>
+            <li>📊 P&amp;L % by Date + per-lot chart (click)</li>
             <li>📊 Break-even EUR price &amp; exchange rate</li>
             <li>📊 Realised Capital Gain &amp; Total P&amp;L</li>
+            <li>🎯 Good to Sell — target proceeds, profit &amp; P&amp;L %</li>
+          </ul>
+        </div>
+        <div>
+          <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Sell Tools</div>
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
+            <li>📋 Log Sell — FIFO sell with capital gain calculation</li>
+            <li>👁 Preview Sell — what-if modal, no data changed</li>
+            <li>🎯 Good to Sell — set target price &amp; qty, auto-tags FIFO lots</li>
+            <li>🎯 Tagged lots shown with 🎯 badge in held table</li>
+            <li>🗑 Clear All — remove all Good to Sell tags</li>
           </ul>
         </div>
         <div>
@@ -528,7 +543,7 @@
         <div>
           <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Data Management</div>
           <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
-            <li>📥 Load CSV — first-time data import</li>
+            <li>📥 Load CSV — from EASYShares (View Merged Purchase &amp; Sell Transactions)</li>
             <li>🔀 Merge CSV — add new rows, skip duplicates</li>
             <li>📤 Export CSV — timestamped backup</li>
             <li>🗑 Clear Storage — wipe browser data</li>
@@ -544,6 +559,10 @@
           <div style="color:var(--muted)">Your portfolio data is stored only in this browser's localStorage. Nothing is sent to any server. Clearing your browser data will erase it — export a CSV backup regularly.</div>
         </div>
         <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">Where do I get the CSV file?</div>
+          <div style="color:var(--muted)">In EASYShares, go to <em>View Merged Purchase &amp; Sell Transactions</em> and download the CSV. Then load it using the <b>Load CSV file</b> button in the top bar.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">Why is SAP price not loading?</div>
           <div style="color:var(--muted)">The price is cached for 5 minutes. Wait for the countdown on the Refresh button to finish, then click it again. If it still fails, Google/Yahoo may be rate-limiting — try again in a few minutes.</div>
         </div>
@@ -556,6 +575,14 @@
           <div style="color:var(--muted)">First In, First Out — when you log a sell, the oldest lots are consumed first. This matches the standard accounting method for share sales.</div>
         </div>
         <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">What does Preview Sell do?</div>
+          <div style="color:var(--muted)">It simulates a sell without making any changes. Fill the Log Sell form, click <b>Preview Sell</b>, and a popup shows the FIFO lot breakdown, capital gain, remaining portfolio, and new break-even — all read-only.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">What is Good to Sell?</div>
+          <div style="color:var(--muted)">Enter a target price and quantity in the <b>Good to Sell</b> section. The app auto-tags the oldest FIFO lots needed. The tile shows projected proceeds, actual profit on those lots, and P&amp;L % vs portfolio average cost.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">What is Break-even?</div>
           <div style="color:var(--muted)">The SAP EUR price (at current exchange rate) at which your total portfolio would be exactly at zero P&amp;L. If SAP trades above this, you're in profit.</div>
         </div>
@@ -566,10 +593,6 @@
         <div style="border-bottom:1px solid var(--border);padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">Can I use this on mobile?</div>
           <div style="color:var(--muted)">Yes — the layout is responsive and works on mobile browsers.</div>
-        </div>
-        <div style="border-bottom:1px solid var(--border);padding:14px 0">
-          <div style="font-weight:600;color:var(--text);margin-bottom:4px">How do I share this app?</div>
-          <div style="color:var(--muted)">Visit <a href='https://github.com/prasadjalsa/sapshareprice' target='_blank'>github.com/prasadjalsa/sapshareprice</a> to find the app.</div>
         </div>
         <div style="padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">Can I edit mistakes in my data?</div>
