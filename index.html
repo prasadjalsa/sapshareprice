@@ -123,7 +123,7 @@
     </div>
     <div class="sep"></div>
     <div>
-      <label>SAP Price (EUR)</label>
+      <label>SAP Price (EUR) <span id="market-state-badge" style="display:none;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;margin-left:4px;vertical-align:middle"></span></label>
       <input type="number" id="currentPriceEur" step="0.01" placeholder="fetching…">
     </div>
     <div>
@@ -1147,6 +1147,27 @@ function fmtEur(n) { return '€' + fmt(n); }
 function fmtInr(n) { return '₹' + fmt(n); }
 function status(msg) { document.getElementById('status-bar').textContent = msg; }
 
+function updateMarketStateBadge(state) {
+  const badge = document.getElementById('market-state-badge');
+  if (!badge) return;
+  const map = {
+    'REGULAR': { text: '● Open',       bg: '#16a34a', color: '#fff' },
+    'PRE':     { text: '◑ Pre-market', bg: '#d97706', color: '#fff' },
+    'POST':    { text: '◑ After-hours',bg: '#d97706', color: '#fff' },
+    'CLOSED':  { text: '○ Closed',     bg: '#6b7280', color: '#fff' },
+  };
+  const s = map[state] || map['CLOSED'];
+  badge.textContent     = s.text;
+  badge.style.background = s.bg;
+  badge.style.color      = s.color;
+  badge.style.display    = 'inline';
+  badge.title = state === 'REGULAR'
+    ? 'XETRA is open — price is live'
+    : state === 'PRE'  ? 'Pre-market — price may not reflect latest'
+    : state === 'POST' ? 'After-hours — price may not reflect latest'
+    : 'Market closed — showing last close price';
+}
+
 function colorClass(n) { return n > 0 ? 'pos' : n < 0 ? 'neg' : 'neu'; }
 
 function isHeld(r) {
@@ -1265,6 +1286,8 @@ async function fetchLivePrices() {
       ageSeconds = json.age_seconds || 0;
       const src = json.source ? ` (${json.source})` : '';
       if (json.stale) errors.push(`SAP price is stale${src} — ${Math.round(ageSeconds/60)}min old`);
+      // Show market state badge
+      updateMarketStateBadge(json.marketState);
     } else {
       errors.push('SAP price unavailable: ' + (json.error || 'unknown'));
     }

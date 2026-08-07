@@ -33,9 +33,14 @@ async function fetchFromYahoo(host = "query1") {
     },
   });
   const data = await res.json();
-  const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+  const meta  = data?.chart?.result?.[0]?.meta;
+  const price = meta?.regularMarketPrice;
   if (!price) throw new Error("Empty price in Yahoo response");
-  return { price: parseFloat(price), source: `Yahoo (${host})` };
+  return {
+    price: parseFloat(price),
+    source: `Yahoo (${host})`,
+    marketState: meta?.marketState || null,   // REGULAR, PRE, POST, CLOSED
+  };
 }
 
 async function handleSapPrice(request) {
@@ -66,8 +71,8 @@ async function handleSapPrice(request) {
   const errors = [];
   for (const fn of sources) {
     try {
-      const { price, source } = await fn();
-      const payload = { price, source, cached: false, age_seconds: 0, fetched_at: Date.now() };
+      const { price, source, marketState } = await fn();
+      const payload = { price, source, marketState: marketState || null, cached: false, age_seconds: 0, fetched_at: Date.now() };
       // Store in Cloudflare edge cache for 5 minutes
       await cache.put(cacheKey, new Response(JSON.stringify(payload), {
         headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${CACHE_TTL}` },
