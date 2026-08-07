@@ -1147,25 +1147,95 @@ function fmtEur(n) { return '€' + fmt(n); }
 function fmtInr(n) { return '₹' + fmt(n); }
 function status(msg) { document.getElementById('status-bar').textContent = msg; }
 
-function updateMarketStateBadge(state) {
+let _marketCountdownTimer = null;
+
+function getGermanyCETOffset(date) {
+  // Germany: CET (UTC+1) in winter, CEST (UTC+2) in summer
+  // DST starts: last Sunday of March at 02:00 CET
+  // DST ends:   last Sunday of October at 03:00 CEST
+  function lastSunday(year, month) {
+    // month: 0-indexed (2=March, 9=October)
+    const d = new Date(Date.UTC(year, month + 1, 0)); // last day of month
+    d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // back to Sunday
+    return d;
+  }
+  const y = date.getUTCFullYear();
+  const dstStart = lastSunday(y, 2); // last Sun of March — at 01:00 UTC (02:00 CET)
+  dstStart.setUTCHours(1);
+  const dstEnd   = lastSunday(y, 9); // last Sun of October — at 01:00 UTC (03:00 CEST)
+  dstEnd.setUTCHours(1);
+  return (date >= dstStart && date < dstEnd) ? 2 : 1; // CEST=+2, CET=+1
+}
+
+function getXETRAState() {
+  const now = new Date();
+  const offset = getGermanyCETOffset(now);
+  const cetNow = new Date(now.getTime() + offset * 3600000);
+  const day  = cetNow.getUTCDay(); // 0=Sun, 6=Sat
+  const mins = cetNow.getUTCHours() * 60 + cetNow.getUTCMinutes();
+  const isWeekday = day >= 1 && day <= 5;
+  const open  = 9 * 60;       // 09:00 CET/CEST
+  const close = 17 * 60 + 30; // 17:30 CET/CEST
+  return { day, mins, isWeekday, open, close };
+}
+
+function minsUntilNextOpen(state) {
+  const { day, mins, open } = state;
+  if (state.isWeekday && mins < open) return open - mins;
+  let d = day, ahead = 0;
+  for (let i = 1; i <= 4; i++) {
+    d = (d + 1) % 7;
+    if (d >= 1 && d <= 5) { ahead = i; break; }
+  }
+  return ahead * 1440 - mins + open;
+}
+
+function fmtCountdown(totalMins) {
+  const d = Math.floor(totalMins / 1440);
+  const h = Math.floor((totalMins % 1440) / 60);
+  const m = totalMins % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function updateMarketStateBadge(apiState) {
   const badge = document.getElementById('market-state-badge');
   if (!badge) return;
-  const map = {
-    'REGULAR': { text: '● Open',       bg: '#16a34a', color: '#fff' },
-    'PRE':     { text: '◑ Pre-market', bg: '#d97706', color: '#fff' },
-    'POST':    { text: '◑ After-hours',bg: '#d97706', color: '#fff' },
-    'CLOSED':  { text: '○ Closed',     bg: '#6b7280', color: '#fff' },
-  };
-  const s = map[state] || map['CLOSED'];
-  badge.textContent     = s.text;
-  badge.style.background = s.bg;
-  badge.style.color      = s.color;
-  badge.style.display    = 'inline';
-  badge.title = state === 'REGULAR'
-    ? 'XETRA is open — price is live'
-    : state === 'PRE'  ? 'Pre-market — price may not reflect latest'
-    : state === 'POST' ? 'After-hours — price may not reflect latest'
-    : 'Market closed — showing last close price';
+  if (_marketCountdownTimer) { clearInterval(_marketCountdownTimer); _marketCountdownTimer = null; }
+
+  function render() {
+    const s = getXETRAState();
+    const isOpen       = s.isWeekday && s.mins >= s.open && s.mins < s.close;
+    const isPreMarket  = s.isWeekday && s.mins < s.open;
+
+    let text, bg, title;
+    if (isOpen) {
+      const rem = s.close - s.mins;
+      text  = `● Open · closes in ${fmtCountdown(rem)}`;
+      bg    = '#16a34a';
+      title = `XETRA open — closes in ${fmtCountdown(rem)} (17:30 CET/CEST)`;
+    } else if (isPreMarket) {
+      const rem = s.open - s.mins;
+      text  = `◑ Pre-market · opens in ${fmtCountdown(rem)}`;
+      bg    = '#d97706';
+      title = `XETRA opens at 09:00 CET/CEST — ${fmtCountdown(rem)} to go`;
+    } else {
+      const rem = minsUntilNextOpen(s);
+      const weekend = !s.isWeekday;
+      text  = `○ ${weekend ? 'Weekend' : 'Closed'} · opens in ${fmtCountdown(rem)}`;
+      bg    = '#6b7280';
+      title = `XETRA closed — next open in ${fmtCountdown(rem)} (09:00 CET/CEST)`;
+    }
+    badge.textContent      = text;
+    badge.style.background = bg;
+    badge.style.color      = '#fff';
+    badge.style.display    = 'inline';
+    badge.title            = title;
+  }
+
+  render();
+  _marketCountdownTimer = setInterval(render, 60000); // update every minute
 }
 
 function colorClass(n) { return n > 0 ? 'pos' : n < 0 ? 'neg' : 'neu'; }
@@ -2292,6 +2362,7 @@ function showHelpTab(tab) {
 // ─── Init ────────────────────────────────────────────────────────────────────
 (function() {
   loadSellTargets();
+  updateMarketStateBadge(); // show market state immediately on load
   const origin = window.location.href.replace(/[^/]*$/, '');
   const saved = loadFromStorage();
   if (saved && saved.length > 0) {
