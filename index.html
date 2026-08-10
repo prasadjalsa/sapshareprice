@@ -668,6 +668,7 @@ function parseCSV(text) {
   // Detect Good to Sell columns
   const gtsIdxPrice = cols.indexOf('_gts_price');
   const gtsIdxDate  = cols.indexOf('_gts_date');
+  const gtsIdxQty   = cols.indexOf('_gts_qty');
   const newTargets  = {};
 
   const result = [];
@@ -684,10 +685,11 @@ function parseCSV(text) {
     if (gtsIdxPrice >= 0) {
       const tp = parseFloat((vals[gtsIdxPrice] || '').trim());
       if (!isNaN(tp) && tp > 0) {
+        const tq = gtsIdxQty >= 0 ? parseFloat((vals[gtsIdxQty] || '').trim()) : NaN;
         newTargets[String(rowIdx)] = {
           targetPrice: tp,
           targetDate:  gtsIdxDate >= 0 ? (vals[gtsIdxDate] || '').trim() : '',
-          tagQty: parseFloat(obj['BALANCE QUANTITY']) || 0,
+          tagQty: !isNaN(tq) && tq > 0 ? tq : parseFloat(obj['BALANCE QUANTITY']) || 0,
         };
       }
     }
@@ -727,15 +729,18 @@ const CSV_COLS = [
 ];
 
 function rowsToCSV(data) {
-  const header = ['', ...CSV_COLS, '_gts_price', '_gts_date'].join(',');
+  const header = ['', ...CSV_COLS, '_gts_price', '_gts_date', '_gts_qty'].join(',');
   const lines = data.map((r, i) => {
     const vals = CSV_COLS.map(c => {
       const v = r[c] !== undefined ? r[c] : '';
       return String(v).includes(',') ? `"${v}"` : v;
     });
-    // _sellTargets keys are strings — use String(i) to match
     const t = _sellTargets[String(i)] || _sellTargets[i] || {};
-    vals.push(t.targetPrice != null ? t.targetPrice : '', t.targetDate || '');
+    vals.push(
+      t.targetPrice != null ? t.targetPrice : '',
+      t.targetDate  || '',
+      t.tagQty      != null ? t.tagQty      : ''
+    );
     return [i, ...vals].join(',');
   });
   return [header, ...lines].join('\n');
