@@ -1820,7 +1820,7 @@ function renderHeld() {
       <td class="${pnlP !== null ? colorClass(pnlP) : ''}">${pnlP !== null ? fmt(pnlP, 2) + '%' : '—'}</td>
       <td>
         <span class="badge ${pnl === null ? 'hold' : pnl >= 0 ? 'profit' : 'loss'}">${pnl === null ? 'HOLD' : pnl >= 0 ? 'PROFIT' : 'LOSS'}</span>
-        ${_sellTargets[idx] ? `<span title="Target: €${_sellTargets[idx].targetPrice}${_sellTargets[idx].targetDate ? ' by '+_sellTargets[idx].targetDate : ''}" style="margin-left:4px">🎯</span>` : ''}
+        ${r['_gts_price'] ? `<span title="Target: €${r['_gts_price']}${r['_gts_date'] ? ' by '+r['_gts_date'] : ''} (${fmt(num(r['_gts_qty']),4)} shares)" style="margin-left:4px">🎯</span>` : ''}
       </td>
       ${heldEditMode ? `<td><button onclick="deleteRow(${idx})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px" title="Delete row">🗑</button></td>` : ''}
     </tr>`;
@@ -2184,17 +2184,6 @@ function closePnLChart() {
 }
 
 // ─── Good to Sell ─────────────────────────────────────────────────────────────
-const ST_KEY = 'sap_sell_targets';
-let _sellTargets = {};
-
-function loadSellTargets() {
-  try { _sellTargets = JSON.parse(localStorage.getItem(ST_KEY) || '{}'); }
-  catch(_) { _sellTargets = {}; }
-}
-function saveSellTargets() {
-  localStorage.setItem(ST_KEY, JSON.stringify(_sellTargets));
-}
-
 function setGoodToSell() {
   const targetPrice = parseFloat(document.getElementById('gts-price').value);
   const targetQty   = parseFloat(document.getElementById('gts-qty').value);
@@ -2203,74 +2192,75 @@ function setGoodToSell() {
   if (isNaN(targetPrice) || targetPrice <= 0) { alert('Enter a valid target price (EUR).'); return; }
   if (isNaN(targetQty)   || targetQty   <= 0) { alert('Enter a valid quantity to tag.'); return; }
 
-  // FIFO: oldest lots first
-  const heldLots = rows
-    .map((r, idx) => ({ r, idx }))
-    .filter(({ r }) => isHeld(r))
-    .sort((a, b) => a.r['ACQUISITION DATE'].localeCompare(b.r['ACQUISITION DATE']));
+  // Clear existing tags on all rows first
+  rows.forEach(r => { delete r['_gts_price']; delete r['_gts_date']; delete r['_gts_qty']; });
 
-  const totalHeld = heldLots.reduce((s, { r }) => s + num(r['BALANCE QUANTITY']), 0);
+  // FIFO: tag oldest lots first
+  const heldLots = rows
+    .filter(r => isHeld(r))
+    .sort((a, b) => a['ACQUISITION DATE'].localeCompare(b['ACQUISITION DATE']));
+
+  const totalHeld = heldLots.reduce((s, r) => s + num(r['BALANCE QUANTITY']), 0);
   if (targetQty > totalHeld + 1e-9) {
     alert(`Cannot tag ${targetQty} shares — only ${totalHeld.toFixed(6)} held.`); return;
   }
 
-  // Clear existing tags and re-apply FIFO
-  _sellTargets = {};
   let remaining = targetQty;
-  for (const { r, idx } of heldLots) {
+  let lotCount  = 0;
+  for (const r of heldLots) {
     if (remaining <= 1e-9) break;
-    const bal     = num(r['BALANCE QUANTITY']);
-    const tagQty  = Math.min(bal, remaining);
-    _sellTargets[idx] = { targetPrice, targetDate, tagQty };
+    const bal    = num(r['BALANCE QUANTITY']);
+    const tagQty = Math.min(bal, remaining);
+    r['_gts_price'] = targetPrice;
+    r['_gts_date']  = targetDate;
+    r['_gts_qty']   = parseFloat(tagQty.toFixed(6));
     remaining -= tagQty;
+    lotCount++;
   }
 
-  saveSellTargets();
+  saveToStorage();
   renderHeld();
   renderSellTargetTile();
-  status(`Tagged ${targetQty} shares across ${Object.keys(_sellTargets).length} lot(s) at €${targetPrice}.`);
+  status(`Tagged ${targetQty} shares across ${lotCount} lot(s) at €${targetPrice}.`);
 }
 
 function clearGoodToSell() {
-  _sellTargets = {};
-  saveSellTargets();
+  rows.forEach(r => { delete r['_gts_price']; delete r['_gts_date']; delete r['_gts_qty']; });
+  saveToStorage();
   renderHeld();
   renderSellTargetTile();
   status('Good to Sell tags cleared.');
 }
 
 function renderSellTargetTile() {
-  const rate     = num(document.getElementById('currentRate').value);
-  const currEur  = num(document.getElementById('currentPriceEur').value);
-  const currInr  = currEur * rate;
-  const tagged   = Object.entries(_sellTargets);
-  const el  = document.getElementById('sell-target-tile-value');
-  const sub = document.getElementById('sell-target-tile-sub');
+  const rate    = num(document.getElementById('currentRate').value);
+  const currEur = num(document.getElementById('currentPriceEur').value);
+  const el      = document.getElementById('sell-target-tile-value');
+  const sub     = document.getElementById('sell-target-tile-sub');
+
+  const tagged = rows.filter(r => isHeld(r) && r['_gts_price']);
   if (!tagged.length) {
     if (el)  { el.textContent = '—'; el.className = 'value neu'; }
     if (sub) sub.textContent = 'Use Good to Sell form to tag lots';
     return;
   }
+
   let totalQty = 0, totalProceeds = 0, totalLotCost = 0, targetPrice = 0;
-  tagged.forEach(([idx, t]) => {
-    const r = rows[parseInt(idx)];
-    if (!r || !isHeld(r)) return;
-    const tagQty = t.tagQty || num(r['BALANCE QUANTITY']);
+  tagged.forEach(r => {
+    const tagQty = num(r['_gts_qty']) || num(r['BALANCE QUANTITY']);
     const cps    = num(r['PURCHASE PRICE (INR)']) || num(r['PURCHASE PRICE (EURO)']) * num(r['BUY EXCHANGE RATE (EURO>INR)']);
     totalQty      += tagQty;
-    totalProceeds += tagQty * t.targetPrice * (rate || 1);
-    totalLotCost  += tagQty * cps;  // actual purchase cost of these lots
-    targetPrice    = t.targetPrice;
+    totalProceeds += tagQty * num(r['_gts_price']) * (rate || 1);
+    totalLotCost  += tagQty * cps;
+    targetPrice    = num(r['_gts_price']);
   });
 
-  // Profit on the actual tagged lots (proceeds - their real purchase cost)
   const lotProfit    = totalProceeds - totalLotCost;
   const lotProfitPct = totalLotCost > 0 ? (lotProfit / totalLotCost) * 100 : null;
 
-  // Overall P&L % vs portfolio avg cost
-  const allHeld   = rows.filter(isHeld);
-  const allQty    = allHeld.reduce((s, r) => s + num(r['BALANCE QUANTITY']), 0);
-  const allCost   = allHeld.reduce((s, r) => {
+  const allHeld  = rows.filter(isHeld);
+  const allQty   = allHeld.reduce((s, r) => s + num(r['BALANCE QUANTITY']), 0);
+  const allCost  = allHeld.reduce((s, r) => {
     const qty = num(r['BALANCE QUANTITY']);
     const cps = num(r['PURCHASE PRICE (INR)']) || num(r['PURCHASE PRICE (EURO)']) * num(r['BUY EXCHANGE RATE (EURO>INR)']);
     return s + qty * cps;
@@ -2280,8 +2270,8 @@ function renderSellTargetTile() {
   const overallPnLPct  = totalCostAtAvg > 0 ? ((totalProceeds - totalCostAtAvg) / totalCostAtAvg) * 100 : null;
 
   if (el) {
-    el.textContent  = rate > 0 ? fmtInr(totalProceeds) : `${fmt(totalQty,4)} shares`;
-    el.className    = 'value ' + (lotProfit >= 0 ? 'pos' : 'neg');
+    el.textContent = rate > 0 ? fmtInr(totalProceeds) : `${fmt(totalQty,4)} shares`;
+    el.className   = 'value ' + (lotProfit >= 0 ? 'pos' : 'neg');
   }
   if (sub) {
     const profitStr  = lotProfitPct !== null ? `Profit: ${fmtInr(lotProfit)} (${(lotProfit>=0?'+':'')+fmt(lotProfitPct,1)}%)` : '—';
@@ -2289,43 +2279,39 @@ function renderSellTargetTile() {
     sub.textContent  = `${fmt(totalQty,4)} shares · €${fmt(targetPrice)} · ${profitStr}${overallStr ? ' · '+overallStr : ''}`;
   }
 }
-
 function openSellTargetSummary() {
-  const rate = num(document.getElementById('currentRate').value);
-  const eur  = num(document.getElementById('currentPriceEur').value);
-  const tagged = Object.entries(_sellTargets).filter(([idx]) => {
-    const r = rows[parseInt(idx)]; return r && isHeld(r);
-  });
-  if (!tagged.length) { status('No lots tagged. Click 🎯 in edit mode on the Held Shares table.'); return; }
+  const rate   = num(document.getElementById('currentRate').value);
+  const eur    = num(document.getElementById('currentPriceEur').value);
+  const tagged = rows.filter(r => isHeld(r) && r['_gts_price']);
+  if (!tagged.length) { status('No lots tagged. Use the Good to Sell form above to tag lots.'); return; }
 
   let html = `<table style="width:100%;border-collapse:collapse;font-size:13px">
     <thead><tr>
       <th style="text-align:left;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);color:var(--muted);font-size:11px">Acq. Date</th>
       <th style="text-align:left;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);color:var(--muted);font-size:11px">Plan Type</th>
-      <th style="text-align:right;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);color:var(--muted);font-size:11px">Qty</th>
+      <th style="text-align:right;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);color:var(--muted);font-size:11px">Tagged Qty</th>
       <th style="text-align:right;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);color:var(--muted);font-size:11px">Target €</th>
       <th style="text-align:right;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);color:var(--muted);font-size:11px">Target ₹</th>
       <th style="text-align:right;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);color:var(--muted);font-size:11px">vs Current</th>
       <th style="text-align:left;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);color:var(--muted);font-size:11px">Target Date</th>
     </tr></thead><tbody>`;
-  tagged.forEach(([idx, t]) => {
-    const r = rows[parseInt(idx)];
-    const qty = num(r['BALANCE QUANTITY']);
-    const tInr = t.targetPrice * (rate || 1);
-    const diff = eur > 0 ? t.targetPrice - eur : null;
+  tagged.forEach(r => {
+    const tagQty = num(r['_gts_qty']) || num(r['BALANCE QUANTITY']);
+    const tp     = num(r['_gts_price']);
+    const tInr   = tp * (rate || 1);
+    const diff   = eur > 0 ? tp - eur : null;
     html += `<tr>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${normalizeDate(r['ACQUISITION DATE'])}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border)"><span class="tag">${r['PLAN TYPE']||'—'}</span></td>
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(qty,6)}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmtEur(t.targetPrice)}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${rate > 0 ? fmtInr(qty * tInr) : '—'}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${fmt(tagQty,6)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:600">${fmtEur(tp)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right">${rate > 0 ? fmtInr(tagQty * tInr) : '—'}</td>
       <td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:right" class="${diff !== null ? colorClass(diff) : 'neu'}">${diff !== null ? (diff >= 0 ? '+' : '') + fmtEur(diff) : '—'}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${t.targetDate || '—'}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid var(--border)">${r['_gts_date'] || '—'}</td>
     </tr>`;
   });
   html += '</tbody></table>';
 
-  // Reuse sell-preview-modal for summary
   document.querySelector('#sell-preview-modal h2').textContent = '🎯 Good to Sell — Tagged Lots';
   document.getElementById('sell-preview-body').innerHTML = html;
   document.getElementById('sell-preview-modal').style.display = 'flex';
@@ -2361,7 +2347,6 @@ function showHelpTab(tab) {
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 (function() {
-  loadSellTargets();
   updateMarketStateBadge(); // show market state immediately on load
   const origin = window.location.href.replace(/[^/]*$/, '');
   const saved = loadFromStorage();
