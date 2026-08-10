@@ -680,11 +680,11 @@ function parseCSV(text) {
       obj[c] = (vals[j] || '').trim().replace(/^"|"$/g, '');
     });
     // Restore Good to Sell tag if present
-    const rowIdx = result.length;
+    const rowIdx = result.length; // index this row will have in result[]
     if (gtsIdxPrice >= 0) {
       const tp = parseFloat((vals[gtsIdxPrice] || '').trim());
       if (!isNaN(tp) && tp > 0) {
-        newTargets[rowIdx] = {
+        newTargets[String(rowIdx)] = {
           targetPrice: tp,
           targetDate:  gtsIdxDate >= 0 ? (vals[gtsIdxDate] || '').trim() : '',
           tagQty: parseFloat(obj['BALANCE QUANTITY']) || 0,
@@ -694,8 +694,8 @@ function parseCSV(text) {
     result.push(obj);
   }
 
-  // Restore tags if any found in CSV
-  if (Object.keys(newTargets).length > 0) {
+  // Restore tags — always replace if CSV has GTS columns, even if empty
+  if (gtsIdxPrice >= 0) {
     _sellTargets = newTargets;
     saveSellTargets();
   }
@@ -733,8 +733,9 @@ function rowsToCSV(data) {
       const v = r[c] !== undefined ? r[c] : '';
       return String(v).includes(',') ? `"${v}"` : v;
     });
-    const t = _sellTargets[i] || {};
-    vals.push(t.targetPrice || '', t.targetDate || '');
+    // _sellTargets keys are strings — use String(i) to match
+    const t = _sellTargets[String(i)] || _sellTargets[i] || {};
+    vals.push(t.targetPrice != null ? t.targetPrice : '', t.targetDate || '');
     return [i, ...vals].join(',');
   });
   return [header, ...lines].join('\n');
