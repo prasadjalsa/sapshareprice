@@ -184,6 +184,13 @@
       <div class="sub">Latest lot</div>
       <canvas id="pnl-spark-2" style="width:100%;height:40px;display:block;margin-top:auto;padding-top:6px"></canvas>
     </div>
+    <!-- SAP Today's Trend tile — static -->
+    <div class="kpi" onclick="openTrendChart()" style="cursor:pointer" title="Click to view today's SAP price trend">
+      <div class="label">SAP Today <span style="font-size:10px;color:var(--accent)">↗</span></div>
+      <div class="value neu" id="trend-tile-value">—</div>
+      <div class="sub" id="trend-tile-sub">Loading…</div>
+      <canvas id="trend-spark" style="width:100%;height:40px;display:block;margin-top:auto;padding-top:6px"></canvas>
+    </div>
     <!-- Good to Sell tile — static -->
     <div class="kpi" onclick="openSellTargetSummary()" style="cursor:pointer" title="Click to view tagged lots">
       <div class="label">Good to Sell 🎯</div>
@@ -419,6 +426,20 @@
   </div>
 
 </div><!-- .main -->
+
+<!-- SAP Today Trend Modal -->
+<div id="trend-modal" onclick="if(event.target===this)closeTrendChart()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:min(900px,95vw);max-height:90vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <h2 style="font-size:16px;font-weight:700">SAP SE (SAP.DE) — Today's Price Trend</h2>
+        <div style="font-size:12px;color:var(--muted)" id="trend-modal-sub"></div>
+      </div>
+      <button onclick="closeTrendChart()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <canvas id="trend-canvas" style="width:100%;height:360px"></canvas>
+  </div>
+</div>
 
 <!-- Sell Preview Modal -->
 <div id="sell-preview-modal" onclick="if(event.target===this)closeSellPreview()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center">
@@ -1410,6 +1431,7 @@ async function fetchLivePrices() {
 
   // Start cooldown — button re-enables once cache TTL expires
   startCooldown(ageSeconds);
+  fetchTrendData(); // load intraday chart in parallel
 }
 
 // ─── Collapsible history ──────────────────────────────────────────────────────
@@ -1916,6 +1938,181 @@ function changePage(dir) {
   renderHistory();
 }
 
+// ─── SAP Today Trend Chart ───────────────────────────────────────────────────
+let _trendData = null; // cached { points, open }
+
+async function fetchTrendData() {
+  try {
+    const res  = await fetch('/api/sap-chart');
+    const json = await res.json();
+    if (json.points && json.points.length > 0) {
+      _trendData = json;
+      drawTrendSparkline();
+      updateTrendTile();
+    } else {
+      document.getElementById('trend-tile-sub').textContent = 'No data yet';
+    }
+  } catch(e) {
+    document.getElementById('trend-tile-sub').textContent = 'Unavailable';
+  }
+}
+
+function updateTrendTile() {
+  if (!_trendData) return;
+  const { points, open } = _trendData;
+  const last  = points[points.length - 1]?.p;
+  const first = points[0]?.p;
+  const el    = document.getElementById('trend-tile-value');
+  const sub   = document.getElementById('trend-tile-sub');
+  if (!last) return;
+  const change    = open ? last - open : last - first;
+  const changePct = open ? (change / open) * 100 : 0;
+  if (el)  { el.textContent = fmtEur(last); el.className = 'value ' + colorClass(change); }
+  if (sub) sub.textContent = `${change >= 0 ? '+' : ''}${fmt(change, 2)} (${changePct >= 0 ? '+' : ''}${fmt(changePct, 2)}%) today`;
+}
+
+function drawTrendSparkline() {
+  const canvas = document.getElementById('trend-spark');
+  if (!canvas || !canvas.parentElement || !_trendData) return;
+  const { points, open } = _trendData;
+  if (!points.length) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W   = Math.max(canvas.parentElement.getBoundingClientRect().width - 36, 190);
+  const H   = 40;
+  canvas.width  = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+
+  const prices = points.map(p => p.p);
+  const base   = open || prices[0];
+  const minV   = Math.min(...prices);
+  const maxV   = Math.max(...prices);
+  const range  = maxV - minV || 1;
+  const PAD    = 3;
+  const toX    = i  => PAD + (i / (points.length - 1)) * (W - PAD * 2);
+  const toY    = v  => PAD + (H - PAD * 2) - ((v - minV) / range) * (H - PAD * 2);
+
+  // Baseline (open/prev close)
+  const baseY = toY(base);
+  ctx.strokeStyle = '#d1d9e0'; ctx.lineWidth = 1; ctx.setLineDash([3, 2]);
+  ctx.beginPath(); ctx.moveTo(PAD, baseY); ctx.lineTo(W - PAD, baseY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Segment-coloured line
+  for (let i = 1; i < points.length; i++) {
+    ctx.beginPath();
+    ctx.moveTo(toX(i - 1), toY(prices[i - 1]));
+    ctx.lineTo(toX(i), toY(prices[i]));
+    ctx.strokeStyle = prices[i] >= base ? '#16a34a' : '#dc2626';
+    ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // Last dot
+  const lx = toX(points.length - 1), ly = toY(prices[prices.length - 1]);
+  ctx.beginPath(); ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+  ctx.fillStyle = prices[prices.length - 1] >= base ? '#16a34a' : '#dc2626';
+  ctx.fill();
+}
+
+function openTrendChart() {
+  if (!_trendData) { fetchTrendData().then(() => _openTrendModal()); return; }
+  _openTrendModal();
+}
+
+function _openTrendModal() {
+  if (!_trendData) { status('No intraday data available yet.'); return; }
+  const { points, open } = _trendData;
+  if (!points.length) { status('No intraday data for today.'); return; }
+
+  document.getElementById('trend-modal').style.display = 'flex';
+
+  // Update sub heading
+  const last = points[points.length - 1]?.p;
+  const change = open ? last - open : 0;
+  const pct    = open ? (change / open) * 100 : 0;
+  document.getElementById('trend-modal-sub').textContent =
+    `Last: €${fmt(last)} · ${change >= 0 ? '+' : ''}${fmt(change, 2)} (${pct >= 0 ? '+' : ''}${fmt(pct, 2)}%) · ${points.length} data points`;
+
+  // Draw full chart
+  const canvas = document.getElementById('trend-canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 800, H = 360;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+
+  const prices = points.map(p => p.p);
+  const base   = open || prices[0];
+  const minV   = Math.min(base, ...prices);
+  const maxV   = Math.max(base, ...prices);
+  const range  = maxV - minV || 0.1;
+  const PAD    = { top: 20, right: 20, bottom: 50, left: 65 };
+  const cW     = W - PAD.left - PAD.right;
+  const cH     = H - PAD.top - PAD.bottom;
+  const toX    = i => PAD.left + (i / (points.length - 1 || 1)) * cW;
+  const toY    = v => PAD.top + cH - ((v - minV) / range) * cH;
+
+  // Grid + Y labels
+  ctx.font = '11px system-ui'; ctx.fillStyle = '#6b7280'; ctx.textAlign = 'right';
+  for (let t = 0; t <= 5; t++) {
+    const v = minV + (range / 5) * t, y = toY(v);
+    ctx.strokeStyle = '#d1d9e0'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    ctx.fillText('€' + fmt(v, 2), PAD.left - 6, y + 4);
+  }
+
+  // Baseline
+  const baseY = toY(base);
+  ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(PAD.left, baseY); ctx.lineTo(PAD.left + cW, baseY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#6b7280'; ctx.textAlign = 'right'; ctx.font = '10px system-ui';
+  ctx.fillText('Prev close €' + fmt(base, 2), PAD.left - 6, baseY + 4);
+
+  // Area fill
+  ctx.beginPath();
+  ctx.moveTo(toX(0), baseY);
+  prices.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.lineTo(toX(prices.length - 1), baseY);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + cH);
+  const isUp = prices[prices.length - 1] >= base;
+  grad.addColorStop(0, isUp ? 'rgba(22,163,74,0.18)' : 'rgba(220,38,38,0.18)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line (segment-coloured)
+  for (let i = 1; i < prices.length; i++) {
+    ctx.beginPath();
+    ctx.moveTo(toX(i - 1), toY(prices[i - 1]));
+    ctx.lineTo(toX(i), toY(prices[i]));
+    ctx.strokeStyle = prices[i] >= base ? '#16a34a' : '#dc2626';
+    ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  // X-axis time labels (every ~30 min)
+  const step = Math.max(1, Math.floor(points.length / 10));
+  ctx.fillStyle = '#6b7280'; ctx.font = '10px system-ui';
+  points.forEach((pt, i) => {
+    if (i % step !== 0 && i !== points.length - 1) return;
+    const d = new Date(pt.t);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    ctx.save();
+    ctx.translate(toX(i), PAD.top + cH + 10);
+    ctx.rotate(-Math.PI / 4);
+    ctx.textAlign = 'right';
+    ctx.fillText(`${hh}:${mm}`, 0, 0);
+    ctx.restore();
+  });
+}
+
+function closeTrendChart() {
+  document.getElementById('trend-modal').style.display = 'none';
+}
+
 // ─── P&L Chart ───────────────────────────────────────────────────────────────
 function drawSparklinePerLot(heldRows, priceInr, canvasId) {
   const canvas = document.getElementById(canvasId);
@@ -2370,6 +2567,7 @@ function showHelpTab(tab) {
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => { drawTrendSparkline(); });
 (function() {
   updateMarketStateBadge(); // show market state immediately on load
   const origin = window.location.href.replace(/[^/]*$/, '');

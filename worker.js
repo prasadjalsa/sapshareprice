@@ -87,22 +87,56 @@ async function handleSapPrice(request) {
   });
 }
 
+async function handleSapChart(request) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS });
+  }
+  try {
+    const url = 'https://query1.finance.yahoo.com/v8/finance/chart/SAP.DE?range=1d&interval=5m&includePrePost=false';
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": UA,
+        "Accept": "application/json",
+        "Referer": "https://finance.yahoo.com",
+        "Origin": "https://finance.yahoo.com",
+      },
+    });
+    const data = await res.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) throw new Error('No chart data');
+    const timestamps = result.timestamp || [];
+    const closes     = result.indicators?.quote?.[0]?.close || [];
+    const open       = result.meta?.chartPreviousClose || null;
+    // Pair timestamps with closes, filter nulls
+    const points = timestamps
+      .map((t, i) => ({ t: t * 1000, p: closes[i] }))
+      .filter(pt => pt.p !== null && pt.p !== undefined);
+    return new Response(JSON.stringify({ points, open }), {
+      status: 200, headers: CORS,
+    });
+  } catch(e) {
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500, headers: CORS,
+    });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // SAP price API
     if (url.pathname === "/api/sap-price") {
       return handleSapPrice(request);
     }
 
-    // Serve index.html from the KV binding or Assets
-    // Cloudflare Workers Sites / Assets: serve static files bound as ASSETS
+    if (url.pathname === "/api/sap-chart") {
+      return handleSapChart(request);
+    }
+
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }
 
-    // Fallback — redirect to GitHub repo
     return Response.redirect("https://github.com/prasadjalsa/sapshareprice", 302);
   },
 };
