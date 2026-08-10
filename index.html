@@ -666,14 +666,32 @@ function parseCSV(text) {
   const colStart = hasLeadingIndex ? 1 : 0;
   const cols = headers.slice(colStart).map(h => h.trim().replace(/^"|"$/g, ''));
 
+  // GTS column indices (human-readable names from export)
+  const gtsPrice = cols.indexOf('Target Price (EUR)');
+  const gtsQty   = cols.indexOf('Quantity to Tag');
+  const gtsDate  = cols.indexOf('Target Date');
+
   const result = [];
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     const vals = splitCSVLine(lines[i]).slice(colStart);
     const obj = {};
     cols.forEach((c, j) => {
+      // Skip GTS columns — handled separately below
+      if (c === 'Target Price (EUR)' || c === 'Quantity to Tag' || c === 'Target Date') return;
       obj[c] = (vals[j] || '').trim().replace(/^"|"$/g, '');
     });
+    // Restore GTS fields onto row if present
+    if (gtsPrice >= 0) {
+      const tp = parseFloat((vals[gtsPrice] || '').trim());
+      const tq = parseFloat((vals[gtsQty]   || '').trim());
+      const td = gtsDate >= 0 ? (vals[gtsDate] || '').trim() : '';
+      if (!isNaN(tp) && tp > 0) {
+        obj['_gts_price'] = tp;
+        obj['_gts_qty']   = !isNaN(tq) && tq > 0 ? tq : parseFloat(obj['BALANCE QUANTITY']) || 0;
+        obj['_gts_date']  = td;
+      }
+    }
     result.push(obj);
   }
   return result;
@@ -704,12 +722,18 @@ const CSV_COLS = [
 ];
 
 function rowsToCSV(data) {
-  const header = ['', ...CSV_COLS].join(',');
+  const GTS_COLS = ['Target Price (EUR)', 'Quantity to Tag', 'Target Date'];
+  const header = ['', ...CSV_COLS, ...GTS_COLS].join(',');
   const lines = data.map((r, i) => {
     const vals = CSV_COLS.map(c => {
       const v = r[c] !== undefined ? r[c] : '';
       return String(v).includes(',') ? `"${v}"` : v;
     });
+    vals.push(
+      r['_gts_price'] != null ? r['_gts_price'] : '',
+      r['_gts_qty']   != null ? r['_gts_qty']   : '',
+      r['_gts_date']  || ''
+    );
     return [i, ...vals].join(',');
   });
   return [header, ...lines].join('\n');
