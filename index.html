@@ -657,6 +657,7 @@ function parseCSV(text) {
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
 
+  // Remove leading index column if present (first header cell is empty or numeric)
   const headerLine = lines[0];
   const headers = splitCSVLine(headerLine);
   const firstHeader = headers[0].trim();
@@ -665,41 +666,15 @@ function parseCSV(text) {
   const colStart = hasLeadingIndex ? 1 : 0;
   const cols = headers.slice(colStart).map(h => h.trim().replace(/^"|"$/g, ''));
 
-  // Detect Good to Sell columns
-  const gtsIdxPrice = cols.indexOf('_gts_price');
-  const gtsIdxDate  = cols.indexOf('_gts_date');
-  const gtsIdxQty   = cols.indexOf('_gts_qty');
-  const newTargets  = {};
-
   const result = [];
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     const vals = splitCSVLine(lines[i]).slice(colStart);
     const obj = {};
     cols.forEach((c, j) => {
-      if (c === '_gts_price' || c === '_gts_date') return; // skip GTS cols
       obj[c] = (vals[j] || '').trim().replace(/^"|"$/g, '');
     });
-    // Restore Good to Sell tag if present
-    const rowIdx = result.length; // index this row will have in result[]
-    if (gtsIdxPrice >= 0) {
-      const tp = parseFloat((vals[gtsIdxPrice] || '').trim());
-      if (!isNaN(tp) && tp > 0) {
-        const tq = gtsIdxQty >= 0 ? parseFloat((vals[gtsIdxQty] || '').trim()) : NaN;
-        newTargets[String(rowIdx)] = {
-          targetPrice: tp,
-          targetDate:  gtsIdxDate >= 0 ? (vals[gtsIdxDate] || '').trim() : '',
-          tagQty: !isNaN(tq) && tq > 0 ? tq : parseFloat(obj['BALANCE QUANTITY']) || 0,
-        };
-      }
-    }
     result.push(obj);
-  }
-
-  // Restore tags — always replace if CSV has GTS columns, even if empty
-  if (gtsIdxPrice >= 0) {
-    _sellTargets = newTargets;
-    saveSellTargets();
   }
   return result;
 }
@@ -729,18 +704,12 @@ const CSV_COLS = [
 ];
 
 function rowsToCSV(data) {
-  const header = ['', ...CSV_COLS, '_gts_price', '_gts_date', '_gts_qty'].join(',');
+  const header = ['', ...CSV_COLS].join(',');
   const lines = data.map((r, i) => {
     const vals = CSV_COLS.map(c => {
       const v = r[c] !== undefined ? r[c] : '';
       return String(v).includes(',') ? `"${v}"` : v;
     });
-    const t = _sellTargets[String(i)] || _sellTargets[i] || {};
-    vals.push(
-      t.targetPrice != null ? t.targetPrice : '',
-      t.targetDate  || '',
-      t.tagQty      != null ? t.tagQty      : ''
-    );
     return [i, ...vals].join(',');
   });
   return [header, ...lines].join('\n');
