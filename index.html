@@ -185,11 +185,11 @@
       <canvas id="pnl-spark-2" style="width:100%;height:40px;display:block;margin-top:auto;padding-top:6px"></canvas>
     </div>
     <!-- SAP Today's Trend tile — static -->
-    <div class="kpi" onclick="openTrendChart()" style="cursor:pointer;overflow:hidden" title="Click to view today's SAP price trend">
+    <div class="kpi" onclick="openTrendChart()" style="cursor:pointer" title="Click to view today's SAP price trend">
       <div class="label">SAP Today <span style="font-size:10px;color:var(--accent)">↗</span></div>
-      <div class="value neu" id="trend-tile-value">—</div>
+      <div class="value neu" id="trend-tile-value" style="font-size:18px">—</div>
       <div class="sub" id="trend-tile-sub">Loading…</div>
-      <canvas id="trend-spark" style="width:100%;height:40px;display:block;margin-top:6px"></canvas>
+      <canvas id="trend-spark" style="width:100%;height:36px;display:block;margin-top:6px;overflow:hidden"></canvas>
     </div>
     <!-- Good to Sell tile — static -->
     <div class="kpi" onclick="openSellTargetSummary()" style="cursor:pointer" title="Click to view tagged lots">
@@ -1978,7 +1978,7 @@ function drawTrendSparkline() {
   if (!points.length) return;
   const dpr = window.devicePixelRatio || 1;
   const W   = Math.max(canvas.parentElement.getBoundingClientRect().width - 36, 190);
-  const H   = 40;
+  const H   = 36;
   canvas.width  = W * dpr; canvas.height = H * dpr;
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   const ctx = canvas.getContext('2d');
