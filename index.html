@@ -1333,14 +1333,15 @@ function startCooldown(ageSeconds) {
   const lbl = document.getElementById('price-last-updated');
   if (_cooldownTimer) clearInterval(_cooldownTimer);
 
-  let remaining = CACHE_TTL - ageSeconds;
+  let remaining     = CACHE_TTL - ageSeconds;
+  let autoRemaining = Math.round(AUTO_REFRESH_MS / 1000); // 900s, counts down independently
   if (remaining <= 0) return;
 
   btn.disabled = true;
   _cooldownTimer = setInterval(() => {
     remaining--;
+    autoRemaining = Math.max(0, autoRemaining - 1);
 
-    // Auto-refresh countdown in label (counts down from 15 min independently)
     const autoOn = document.getElementById('auto-refresh-toggle').checked;
 
     if (remaining <= 0) {
@@ -1353,12 +1354,9 @@ function startCooldown(ageSeconds) {
 
     const m = Math.floor(remaining / 60);
     const s = remaining % 60;
-    const countdown = m > 0 ? `${m}m ${s < 10 ? '0'+s : s}s` : `${s}s`;
-    btn.textContent = `⟳ Ready in ${countdown}`;
+    btn.textContent = `⟳ Ready in ${m > 0 ? m + 'm ' : ''}${s < 10 ? '0' : ''}${s}s`;
 
     if (autoOn) {
-      const autoElapsed = (CACHE_TTL - ageSeconds - remaining);
-      const autoRemaining = Math.max(0, Math.round(AUTO_REFRESH_MS / 1000) - autoElapsed);
       const am = Math.floor(autoRemaining / 60), as2 = autoRemaining % 60;
       lbl.textContent = (lbl.dataset.base || '') + ` | auto in ${am}m ${as2 < 10 ? '0'+as2 : as2}s`;
     } else {
