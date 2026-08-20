@@ -1959,14 +1959,14 @@ function updateTrendTile() {
   if (!_trendData) return;
   const { points, open } = _trendData;
   const last  = points[points.length - 1]?.p;
-  const first = points[0]?.p;
+  const first = points[0]?.p; // market open price (first candle of the day)
   const el    = document.getElementById('trend-tile-value');
   const sub   = document.getElementById('trend-tile-sub');
   if (!last) return;
   const change    = open ? last - open : last - first;
   const changePct = open ? (change / open) * 100 : 0;
   if (el)  { el.textContent = fmtEur(last); el.className = 'value ' + colorClass(change); }
-  if (sub) sub.textContent = `${change >= 0 ? '+' : ''}${fmt(change, 2)} (${changePct >= 0 ? '+' : ''}${fmt(changePct, 2)}%) today`;
+  if (sub) sub.textContent = `${change >= 0 ? '+' : ''}${fmt(change, 2)} (${changePct >= 0 ? '+' : ''}${fmt(changePct, 2)}%) · Open: ${first ? fmtEur(first) : '—'}`;
 }
 
 function drawTrendSparkline() {
@@ -2065,13 +2065,24 @@ function _openTrendModal() {
     ctx.fillText('€' + fmt(v, 2), PAD.left - 6, y + 4);
   }
 
-  // Baseline
+  // Prev close baseline (grey dashed)
   const baseY = toY(base);
   ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
   ctx.beginPath(); ctx.moveTo(PAD.left, baseY); ctx.lineTo(PAD.left + cW, baseY); ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = '#6b7280'; ctx.textAlign = 'right'; ctx.font = '10px system-ui';
   ctx.fillText('Prev close €' + fmt(base, 2), PAD.left - 6, baseY + 4);
+
+  // Market open price line (blue dashed) — first candle of the day
+  const marketOpen = prices[0];
+  if (marketOpen && Math.abs(marketOpen - base) > 0.01) {
+    const openY = toY(marketOpen);
+    ctx.strokeStyle = '#1a6fd4'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(PAD.left, openY); ctx.lineTo(PAD.left + cW, openY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#1a6fd4'; ctx.textAlign = 'right'; ctx.font = '10px system-ui';
+    ctx.fillText('Open €' + fmt(marketOpen, 2), PAD.left - 6, openY + 4);
+  }
 
   // Area fill
   ctx.beginPath();
