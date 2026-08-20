@@ -91,7 +91,6 @@
   /* Misc */
   .empty { padding: 40px; text-align: center; color: var(--muted); }
   .tag { font-size: 11px; padding: 2px 7px; border-radius: 4px; background: var(--surface2); color: var(--muted); }
-  .flex { display: flex; gap: 8px; align-items: center; }
   .edit-input { background: var(--bg); border: 1px solid var(--accent); border-radius: 4px; padding: 3px 6px; font-size: 12px; color: var(--text); width: 100%; min-width: 70px; }
   .edit-input:focus { outline: 2px solid var(--accent); }
   #status-bar { font-size: 12px; color: var(--muted); padding: 6px 0; min-height: 20px; }
@@ -165,7 +164,7 @@
     <div class="sep"></div>
   </div>
 
-  <div id="status-bar"></div>
+  <div id="status-bar" role="status" aria-live="polite"></div>
 
   <!-- Unified KPI row — main tiles + sparkline tiles in one grid -->
   <div class="kpis" id="kpis-all" style="margin-bottom:20px">
@@ -1305,6 +1304,7 @@ function renderAll() {
 // ─── Live Price Fetch ─────────────────────────────────────────────────────────
 let _cooldownTimer = null;
 let _autoRefreshTimer = null;
+let _autoRefreshScheduledAt = 0; // timestamp when the 15-min cycle started
 const AUTO_REFRESH_MS = 15 * 60 * 1000; // 15 minutes
 
 function toggleAutoRefresh() {
@@ -1314,49 +1314,49 @@ function toggleAutoRefresh() {
     status('Auto-refresh enabled — prices will update every 15 minutes.');
   } else {
     if (_autoRefreshTimer) { clearTimeout(_autoRefreshTimer); _autoRefreshTimer = null; }
+    _autoRefreshScheduledAt = 0;
     status('Auto-refresh disabled.');
   }
 }
 
 function _scheduleAutoRefresh() {
   if (_autoRefreshTimer) clearTimeout(_autoRefreshTimer);
+  _autoRefreshScheduledAt = Date.now();
   _autoRefreshTimer = setTimeout(async () => {
     if (!document.getElementById('auto-refresh-toggle').checked) return;
     await fetchLivePrices();
-    _scheduleAutoRefresh(); // schedule next cycle after fetch completes
+    _scheduleAutoRefresh();
   }, AUTO_REFRESH_MS);
 }
 
 function startCooldown(ageSeconds) {
-  const CACHE_TTL = 300; // must match server.py CACHE_TTL
+  const CACHE_TTL = 300;
   const btn = document.getElementById('refresh-btn');
   const lbl = document.getElementById('price-last-updated');
   if (_cooldownTimer) clearInterval(_cooldownTimer);
 
-  let remaining     = CACHE_TTL - ageSeconds;
-  let autoRemaining = Math.round(AUTO_REFRESH_MS / 1000); // 900s, counts down independently
-  if (remaining <= 0) return;
+  let remaining = CACHE_TTL - ageSeconds;
 
-  btn.disabled = true;
+  btn.disabled = remaining > 0;
   _cooldownTimer = setInterval(() => {
     remaining--;
-    autoRemaining = Math.max(0, autoRemaining - 1);
 
     const autoOn = document.getElementById('auto-refresh-toggle').checked;
 
     if (remaining <= 0) {
-      clearInterval(_cooldownTimer);
       btn.disabled = false;
       btn.textContent = '⟳ Refresh Prices';
-      lbl.textContent = lbl.dataset.base || '';
-      return;
+    } else {
+      btn.disabled = true;
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      btn.textContent = `⟳ Ready in ${m > 0 ? m + 'm ' : ''}${s < 10 ? '0' : ''}${s}s`;
     }
 
-    const m = Math.floor(remaining / 60);
-    const s = remaining % 60;
-    btn.textContent = `⟳ Ready in ${m > 0 ? m + 'm ' : ''}${s < 10 ? '0' : ''}${s}s`;
-
-    if (autoOn) {
+    // Always show auto countdown in label when enabled — even after cooldown expires
+    if (autoOn && _autoRefreshScheduledAt > 0) {
+      const elapsed       = Math.floor((Date.now() - _autoRefreshScheduledAt) / 1000);
+      const autoRemaining = Math.max(0, Math.round(AUTO_REFRESH_MS / 1000) - elapsed);
       const am = Math.floor(autoRemaining / 60), as2 = autoRemaining % 60;
       lbl.textContent = (lbl.dataset.base || '') + ` | auto in ${am}m ${as2 < 10 ? '0'+as2 : as2}s`;
     } else {
