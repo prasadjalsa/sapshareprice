@@ -2049,14 +2049,16 @@ function _openTrendModal() {
   const cW  = W - PAD.left - PAD.right;
   const cH  = H - PAD.top - PAD.bottom;
 
-  // XETRA session bounds in ms — use the date of the first point
-  const cetOffset = getGermanyCETOffset(new Date(points[0].t)) * 3600000;
-  const dayStart  = new Date(points[0].t);
-  // midnight CET of that day
-  const cetMidnight = new Date(dayStart.getTime() - ((dayStart.getTime() + cetOffset) % 86400000));
-  const sessionOpen  = cetMidnight.getTime() + 9  * 3600000 - cetOffset;  // 09:00 CET in UTC ms
-  const sessionClose = cetMidnight.getTime() + 17.5 * 3600000 - cetOffset; // 17:30 CET in UTC ms
-  const sessionLen   = sessionClose - sessionOpen;
+  // XETRA session bounds — compute 09:00 and 17:30 CET/CEST as UTC ms
+  const cetOffsetMs = getGermanyCETOffset(new Date(points[0].t)) * 3600000;
+  const firstPointMs = points[0].t;
+  // Find UTC midnight of the CET day this point belongs to
+  const cetDayMs     = firstPointMs + cetOffsetMs; // shift to CET
+  const cetMidnightMs = cetDayMs - (cetDayMs % 86400000); // floor to midnight CET
+  const utcMidnight   = cetMidnightMs - cetOffsetMs; // back to UTC
+  const sessionOpen   = utcMidnight + 9    * 3600000; // 09:00 CET = UTC midnight + 9h - offset, but offset already removed
+  const sessionClose  = utcMidnight + 17.5 * 3600000; // 17:30 CET
+  const sessionLen    = sessionClose - sessionOpen;
 
   const prices     = points.map(p => p.p);
   const base       = open || prices[0];
