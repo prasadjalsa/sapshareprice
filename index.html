@@ -2045,12 +2045,13 @@ function _openTrendModal() {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
 
-  const prices = points.map(p => p.p);
-  const base   = open || prices[0];
-  const minV   = Math.min(base, ...prices);
-  const maxV   = Math.max(base, ...prices);
+  const prices     = points.map(p => p.p);
+  const base       = open || prices[0];
+  const marketOpen = prices[0];
+  const minV   = Math.min(base, marketOpen, ...prices);
+  const maxV   = Math.max(base, marketOpen, ...prices);
   const range  = maxV - minV || 0.1;
-  const PAD    = { top: 20, right: 20, bottom: 50, left: 65 };
+  const PAD    = { top: 20, right: 20, bottom: 50, left: 90 };
   const cW     = W - PAD.left - PAD.right;
   const cH     = H - PAD.top - PAD.bottom;
   const toX    = i => PAD.left + (i / (points.length - 1 || 1)) * cW;
@@ -2070,19 +2071,6 @@ function _openTrendModal() {
   ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
   ctx.beginPath(); ctx.moveTo(PAD.left, baseY); ctx.lineTo(PAD.left + cW, baseY); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = '#6b7280'; ctx.textAlign = 'right'; ctx.font = '10px system-ui';
-  ctx.fillText('Prev close €' + fmt(base, 2), PAD.left - 6, baseY + 4);
-
-  // Market open price line (blue dashed) — first candle of the day
-  const marketOpen = prices[0];
-  if (marketOpen && Math.abs(marketOpen - base) > 0.01) {
-    const openY = toY(marketOpen);
-    ctx.strokeStyle = '#1a6fd4'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-    ctx.beginPath(); ctx.moveTo(PAD.left, openY); ctx.lineTo(PAD.left + cW, openY); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#1a6fd4'; ctx.textAlign = 'right'; ctx.font = '10px system-ui';
-    ctx.fillText('Open €' + fmt(marketOpen, 2), PAD.left - 6, openY + 4);
-  }
 
   // Area fill
   ctx.beginPath();
@@ -2103,6 +2091,23 @@ function _openTrendModal() {
     ctx.lineTo(toX(i), toY(prices[i]));
     ctx.strokeStyle = prices[i] >= base ? '#16a34a' : '#dc2626';
     ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  // Draw threshold labels on top of everything
+  ctx.font = '10px system-ui'; ctx.textAlign = 'right';
+
+  // Prev close label
+  ctx.fillStyle = '#6b7280';
+  ctx.fillText('Prev close €' + fmt(base, 2), PAD.left - 4, baseY - 3);
+
+  // Market open line + label (blue dashed) — only if meaningfully different from prev close
+  if (marketOpen && Math.abs(marketOpen - base) > 0.01) {
+    const openY = toY(marketOpen);
+    ctx.strokeStyle = '#1a6fd4'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(PAD.left, openY); ctx.lineTo(PAD.left + cW, openY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#1a6fd4';
+    ctx.fillText('Open €' + fmt(marketOpen, 2), PAD.left - 4, openY - 3);
   }
 
   // X-axis time labels (every ~30 min)
