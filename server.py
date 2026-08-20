@@ -78,10 +78,44 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/sap-price":
             self._proxy_sap()
+        elif self.path == "/api/sap-chart":
+            self._proxy_chart()
         elif self.path == "/api/info":
             self._json(200, {"dir": os.getcwd()})
         else:
             super().do_GET()
+
+    def _proxy_chart(self):
+        try:
+            url = "https://query1.finance.yahoo.com/v8/finance/chart/SAP.DE?range=1d&interval=5m&includePrePost=false"
+            req = urllib.request.Request(url, headers=FETCH_HEADERS)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.load(resp)
+            result = data["chart"]["result"][0]
+            timestamps = result.get("timestamp", [])
+            quote      = result["indicators"]["quote"][0]
+            closes     = quote.get("close",  [])
+            highs      = quote.get("high",   [])
+            lows       = quote.get("low",    [])
+            opens      = quote.get("open",   [])
+            prev_close = result["meta"].get("chartPreviousClose")
+            points = [{"t": t * 1000, "p": c}
+                      for t, c in zip(timestamps, closes)
+                      if c is not None]
+            valid_highs = [h for h in highs if h is not None]
+            valid_lows  = [l for l in lows  if l is not None]
+            day_open    = next((o for o in opens if o is not None), None)
+            day_high    = max(valid_highs) if valid_highs else None
+            day_low     = min(valid_lows)  if valid_lows  else None
+            self._json(200, {
+                "points":  points,
+                "open":    prev_close,
+                "dayOpen": day_open,
+                "dayHigh": day_high,
+                "dayLow":  day_low,
+            })
+        except Exception as e:
+            self._json(500, {"error": str(e)})
 
     def _proxy_sap(self):
         now = time.time()
