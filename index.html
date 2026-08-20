@@ -2051,7 +2051,7 @@ function _openTrendModal() {
   const minV   = Math.min(base, marketOpen, ...prices);
   const maxV   = Math.max(base, marketOpen, ...prices);
   const range  = maxV - minV || 0.1;
-  const PAD    = { top: 20, right: 20, bottom: 50, left: 90 };
+  const PAD    = { top: 20, right: 20, bottom: 50, left: 70 };
   const cW     = W - PAD.left - PAD.right;
   const cH     = H - PAD.top - PAD.bottom;
   const toX    = i => PAD.left + (i / (points.length - 1 || 1)) * cW;
@@ -2094,11 +2094,12 @@ function _openTrendModal() {
   }
 
   // Draw threshold labels on top of everything
-  ctx.font = '10px system-ui'; ctx.textAlign = 'right';
+  ctx.font = '10px system-ui';
 
-  // Prev close label
-  ctx.fillStyle = '#6b7280';
-  ctx.fillText('Prev close €' + fmt(base, 2), PAD.left - 4, baseY - 3);
+  // Prev close label — drawn inside chart at left edge
+  ctx.fillStyle = 'rgba(107,114,128,0.9)';
+  ctx.textAlign = 'left';
+  ctx.fillText('Prev close €' + fmt(base, 2), PAD.left + 4, baseY - 3);
 
   // Market open line + label (blue dashed) — only if meaningfully different from prev close
   if (marketOpen && Math.abs(marketOpen - base) > 0.01) {
@@ -2106,8 +2107,9 @@ function _openTrendModal() {
     ctx.strokeStyle = '#1a6fd4'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.moveTo(PAD.left, openY); ctx.lineTo(PAD.left + cW, openY); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#1a6fd4';
-    ctx.fillText('Open €' + fmt(marketOpen, 2), PAD.left - 4, openY - 3);
+    ctx.fillStyle = 'rgba(26,111,212,0.9)';
+    ctx.textAlign = 'left';
+    ctx.fillText('Open €' + fmt(marketOpen, 2), PAD.left + 4, openY - 3);
   }
 
   // X-axis time labels (every ~30 min)
