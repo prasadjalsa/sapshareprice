@@ -437,6 +437,12 @@
       <button onclick="closeTrendChart()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
     </div>
     <canvas id="trend-canvas" style="width:100%;height:360px"></canvas>
+    <div id="trend-modal-stats" style="display:flex;gap:32px;margin-top:16px;padding:12px 4px;border-top:1px solid var(--border);font-size:13px">
+      <div><span style="color:var(--muted)">Open</span> <strong id="trend-stat-open">—</strong></div>
+      <div><span style="color:var(--muted)">High</span> <strong id="trend-stat-high" style="color:var(--green)">—</strong></div>
+      <div><span style="color:var(--muted)">Low</span>  <strong id="trend-stat-low" style="color:var(--red)">—</strong></div>
+      <div><span style="color:var(--muted)">Prev Close</span> <strong id="trend-stat-prev">—</strong></div>
+    </div>
   </div>
 </div>
 
@@ -2024,10 +2030,16 @@ function openTrendChart() {
 
 function _openTrendModal() {
   if (!_trendData) { status('No intraday data available yet.'); return; }
-  const { points, open } = _trendData;
+  const { points, open, dayOpen, dayHigh, dayLow } = _trendData;
   if (!points.length) { status('No intraday data for today.'); return; }
 
   document.getElementById('trend-modal').style.display = 'flex';
+
+  // Populate stats bar
+  document.getElementById('trend-stat-open').textContent = dayOpen ? fmtEur(dayOpen) : '—';
+  document.getElementById('trend-stat-high').textContent = dayHigh ? fmtEur(dayHigh) : '—';
+  document.getElementById('trend-stat-low').textContent  = dayLow  ? fmtEur(dayLow)  : '—';
+  document.getElementById('trend-stat-prev').textContent = open    ? fmtEur(open)     : '—';
 
   // Update sub heading
   const last = points[points.length - 1]?.p;

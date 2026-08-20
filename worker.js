@@ -105,13 +105,23 @@ async function handleSapChart(request) {
     const result = data?.chart?.result?.[0];
     if (!result) throw new Error('No chart data');
     const timestamps = result.timestamp || [];
-    const closes     = result.indicators?.quote?.[0]?.close || [];
-    const open       = result.meta?.chartPreviousClose || null;
+    const quote      = result.indicators?.quote?.[0] || {};
+    const closes     = quote.close  || [];
+    const highs      = quote.high   || [];
+    const lows       = quote.low    || [];
+    const opens      = quote.open   || [];
+    const prevClose  = result.meta?.chartPreviousClose || null;
     // Pair timestamps with closes, filter nulls
     const points = timestamps
       .map((t, i) => ({ t: t * 1000, p: closes[i] }))
       .filter(pt => pt.p !== null && pt.p !== undefined);
-    return new Response(JSON.stringify({ points, open }), {
+    // Day high, low, open from intraday candles
+    const validHighs = highs.filter(v => v != null);
+    const validLows  = lows.filter(v => v != null);
+    const dayHigh    = validHighs.length ? Math.max(...validHighs) : null;
+    const dayLow     = validLows.length  ? Math.min(...validLows)  : null;
+    const dayOpen    = opens.find(v => v != null) || null;
+    return new Response(JSON.stringify({ points, open: prevClose, dayOpen, dayHigh, dayLow }), {
       status: 200, headers: CORS,
     });
   } catch(e) {
