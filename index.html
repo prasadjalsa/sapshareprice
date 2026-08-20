@@ -2036,7 +2036,7 @@ function _openTrendModal() {
   document.getElementById('trend-modal-sub').textContent =
     `Last: €${fmt(last)} · ${change >= 0 ? '+' : ''}${fmt(change, 2)} (${pct >= 0 ? '+' : ''}${fmt(pct, 2)}%) · ${points.length} data points`;
 
-  // Draw full chart
+  // Draw full chart — time-based X axis spanning 09:00–17:30 CET/CEST
   const canvas = document.getElementById('trend-canvas');
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.offsetWidth || 800, H = 360;
@@ -2045,19 +2045,31 @@ function _openTrendModal() {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
 
+  const PAD = { top: 20, right: 20, bottom: 50, left: 70 };
+  const cW  = W - PAD.left - PAD.right;
+  const cH  = H - PAD.top - PAD.bottom;
+
+  // XETRA session bounds in ms — use the date of the first point
+  const cetOffset = getGermanyCETOffset(new Date(points[0].t)) * 3600000;
+  const dayStart  = new Date(points[0].t);
+  // midnight CET of that day
+  const cetMidnight = new Date(dayStart.getTime() - ((dayStart.getTime() + cetOffset) % 86400000));
+  const sessionOpen  = cetMidnight.getTime() + 9  * 3600000 - cetOffset;  // 09:00 CET in UTC ms
+  const sessionClose = cetMidnight.getTime() + 17.5 * 3600000 - cetOffset; // 17:30 CET in UTC ms
+  const sessionLen   = sessionClose - sessionOpen;
+
   const prices     = points.map(p => p.p);
   const base       = open || prices[0];
   const marketOpen = prices[0];
   const minV   = Math.min(base, marketOpen, ...prices);
   const maxV   = Math.max(base, marketOpen, ...prices);
   const range  = maxV - minV || 0.1;
-  const PAD    = { top: 20, right: 20, bottom: 50, left: 70 };
-  const cW     = W - PAD.left - PAD.right;
-  const cH     = H - PAD.top - PAD.bottom;
-  const toX    = i => PAD.left + (i / (points.length - 1 || 1)) * cW;
-  const toY    = v => PAD.top + cH - ((v - minV) / range) * cH;
 
-  // Grid + Y labels
+  // Time-based toX — maps timestamp to pixel position within 09:00–17:30
+  const toX = t  => PAD.left + Math.max(0, Math.min(1, (t - sessionOpen) / sessionLen)) * cW;
+  const toY = v  => PAD.top + cH - ((v - minV) / range) * cH;
+
+  // Y grid + labels
   ctx.font = '11px system-ui'; ctx.fillStyle = '#6b7280'; ctx.textAlign = 'right';
   for (let t = 0; t <= 5; t++) {
     const v = minV + (range / 5) * t, y = toY(v);
@@ -2066,17 +2078,33 @@ function _openTrendModal() {
     ctx.fillText('€' + fmt(v, 2), PAD.left - 6, y + 4);
   }
 
+  // X grid lines + labels every 60 min
+  ctx.fillStyle = '#6b7280'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+  for (let h = 9; h <= 17; h++) {
+    const tickMs = sessionOpen + (h - 9) * 3600000;
+    const x = toX(tickMs);
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + cH); ctx.stroke();
+    ctx.fillText(`${String(h).padStart(2,'0')}:00`, x, PAD.top + cH + 14);
+  }
+  // 17:30 label
+  const x1730 = toX(sessionClose);
+  ctx.beginPath(); ctx.moveTo(x1730, PAD.top); ctx.lineTo(x1730, PAD.top + cH); ctx.stroke();
+  ctx.fillText('17:30', x1730, PAD.top + cH + 14);
+
   // Prev close baseline (grey dashed)
   const baseY = toY(base);
   ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
   ctx.beginPath(); ctx.moveTo(PAD.left, baseY); ctx.lineTo(PAD.left + cW, baseY); ctx.stroke();
   ctx.setLineDash([]);
 
-  // Area fill
+  // Area fill — from session open to last data point
+  const firstX = toX(points[0].t);
+  const lastX  = toX(points[points.length - 1].t);
   ctx.beginPath();
-  ctx.moveTo(toX(0), baseY);
-  prices.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
-  ctx.lineTo(toX(prices.length - 1), baseY);
+  ctx.moveTo(firstX, baseY);
+  points.forEach(pt => ctx.lineTo(toX(pt.t), toY(pt.p)));
+  ctx.lineTo(lastX, baseY);
   ctx.closePath();
   const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + cH);
   const isUp = prices[prices.length - 1] >= base;
@@ -2084,49 +2112,35 @@ function _openTrendModal() {
   grad.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = grad; ctx.fill();
 
-  // Line (segment-coloured)
-  for (let i = 1; i < prices.length; i++) {
+  // Price line (segment-coloured)
+  for (let i = 1; i < points.length; i++) {
     ctx.beginPath();
-    ctx.moveTo(toX(i - 1), toY(prices[i - 1]));
-    ctx.lineTo(toX(i), toY(prices[i]));
-    ctx.strokeStyle = prices[i] >= base ? '#16a34a' : '#dc2626';
+    ctx.moveTo(toX(points[i-1].t), toY(points[i-1].p));
+    ctx.lineTo(toX(points[i].t),   toY(points[i].p));
+    ctx.strokeStyle = points[i].p >= base ? '#16a34a' : '#dc2626';
     ctx.lineWidth = 2; ctx.stroke();
   }
 
-  // Draw threshold labels on top of everything
-  ctx.font = '10px system-ui';
-
-  // Prev close label — drawn inside chart at left edge
+  // Threshold labels on top
+  ctx.font = '10px system-ui'; ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(107,114,128,0.9)';
-  ctx.textAlign = 'left';
   ctx.fillText('Prev close €' + fmt(base, 2), PAD.left + 4, baseY - 3);
 
-  // Market open line + label (blue dashed) — only if meaningfully different from prev close
   if (marketOpen && Math.abs(marketOpen - base) > 0.01) {
     const openY = toY(marketOpen);
     ctx.strokeStyle = '#1a6fd4'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.moveTo(PAD.left, openY); ctx.lineTo(PAD.left + cW, openY); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = 'rgba(26,111,212,0.9)';
-    ctx.textAlign = 'left';
     ctx.fillText('Open €' + fmt(marketOpen, 2), PAD.left + 4, openY - 3);
   }
 
-  // X-axis time labels (every ~30 min)
-  const step = Math.max(1, Math.floor(points.length / 10));
-  ctx.fillStyle = '#6b7280'; ctx.font = '10px system-ui';
-  points.forEach((pt, i) => {
-    if (i % step !== 0 && i !== points.length - 1) return;
-    const d = new Date(pt.t);
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    ctx.save();
-    ctx.translate(toX(i), PAD.top + cH + 10);
-    ctx.rotate(-Math.PI / 4);
-    ctx.textAlign = 'right';
-    ctx.fillText(`${hh}:${mm}`, 0, 0);
-    ctx.restore();
-  });
+  // Last price dot
+  const lx = toX(points[points.length - 1].t);
+  const ly = toY(prices[prices.length - 1]);
+  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2);
+  ctx.fillStyle = prices[prices.length - 1] >= base ? '#16a34a' : '#dc2626';
+  ctx.fill();
 }
 
 function closeTrendChart() {
