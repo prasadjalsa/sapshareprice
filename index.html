@@ -1585,7 +1585,7 @@ function renderKPIs() {
     </div>
     <div class="kpi">
       <div class="label">Break-even</div>
-      <div class="value neu" style="font-size:16px">${beEur !== null ? fmtEur(beEur) : '—'}</div>
+      <div class="value ${beEur !== null && priceEur > 0 ? colorClass(priceEur - beEur) : 'neu'}" style="font-size:16px">${beEur !== null ? fmtEur(beEur) : '—'}</div>
       <div class="sub">
         ${beRate !== null ? 'Rate: ₹' + fmt(beRate) + '/€' : 'Enter price + rate above'}
         ${(() => {
