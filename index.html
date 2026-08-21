@@ -1986,10 +1986,6 @@ function drawTrendSparkline() {
   const dpr = window.devicePixelRatio || 1;
   const W   = Math.max(canvas.parentElement.getBoundingClientRect().width - 36, 190);
   const H   = 40;
-  canvas.width  = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width  = W + 'px';
-  canvas.style.height = H + 'px';
   canvas.width  = W * dpr; canvas.height = H * dpr;
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   const ctx = canvas.getContext('2d');
@@ -1997,30 +1993,41 @@ function drawTrendSparkline() {
 
   const prices = points.map(p => p.p);
   const base   = open || prices[0];
-  const minV   = Math.min(...prices);
-  const maxV   = Math.max(...prices);
+  const minV   = Math.min(base, ...prices);
+  const maxV   = Math.max(base, ...prices);
   const range  = maxV - minV || 1;
-  const PAD    = 3;
-  const toX    = i  => PAD + (i / (points.length - 1)) * (W - PAD * 2);
-  const toY    = v  => PAD + (H - PAD * 2) - ((v - minV) / range) * (H - PAD * 2);
+  const PAD    = 2;
 
-  // Baseline (open/prev close)
+  // Same time-based X axis as full chart — 09:00 to 17:30 CET
+  const cetOffsetMs  = getGermanyCETOffset(new Date(points[0].t)) * 3600000;
+  const cetDayMs     = points[0].t + cetOffsetMs;
+  const cetMidnightMs = cetDayMs - (cetDayMs % 86400000);
+  const utcMidnight  = cetMidnightMs - cetOffsetMs;
+  const sessionOpen  = utcMidnight + 9    * 3600000;
+  const sessionClose = utcMidnight + 17.5 * 3600000;
+  const sessionLen   = sessionClose - sessionOpen;
+
+  const toX = t => PAD + Math.max(0, Math.min(1, (t - sessionOpen) / sessionLen)) * (W - PAD * 2);
+  const toY = v => PAD + (H - PAD * 2) - ((v - minV) / range) * (H - PAD * 2);
+
+  // Baseline (prev close)
   const baseY = toY(base);
   ctx.strokeStyle = '#d1d9e0'; ctx.lineWidth = 1; ctx.setLineDash([3, 2]);
   ctx.beginPath(); ctx.moveTo(PAD, baseY); ctx.lineTo(W - PAD, baseY); ctx.stroke();
   ctx.setLineDash([]);
 
-  // Segment-coloured line
+  // Segment-coloured line positioned by timestamp
   for (let i = 1; i < points.length; i++) {
     ctx.beginPath();
-    ctx.moveTo(toX(i - 1), toY(prices[i - 1]));
-    ctx.lineTo(toX(i), toY(prices[i]));
+    ctx.moveTo(toX(points[i-1].t), toY(prices[i-1]));
+    ctx.lineTo(toX(points[i].t),   toY(prices[i]));
     ctx.strokeStyle = prices[i] >= base ? '#16a34a' : '#dc2626';
     ctx.lineWidth = 1.5; ctx.stroke();
   }
 
   // Last dot
-  const lx = toX(points.length - 1), ly = toY(prices[prices.length - 1]);
+  const lx = toX(points[points.length - 1].t);
+  const ly = toY(prices[prices.length - 1]);
   ctx.beginPath(); ctx.arc(lx, ly, 3, 0, Math.PI * 2);
   ctx.fillStyle = prices[prices.length - 1] >= base ? '#16a34a' : '#dc2626';
   ctx.fill();
