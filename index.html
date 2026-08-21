@@ -1966,17 +1966,16 @@ async function fetchTrendData() {
 
 function updateTrendTile() {
   if (!_trendData) return;
-  const { points, open, dayOpen, dayHigh, dayLow } = _trendData;
+  const { points, open } = _trendData;
   const last  = points[points.length - 1]?.p;
-  const base  = open || points[0]?.p; // prev close as baseline — same as graph
+  const first = points[0]?.p; // market open price (first candle of the day)
   const el    = document.getElementById('trend-tile-value');
   const sub   = document.getElementById('trend-tile-sub');
-  if (!last || !base) return;
-  const change    = last - base;
-  const changePct = (change / base) * 100;
+  if (!last) return;
+  const change    = open ? last - open : last - first;
+  const changePct = open ? (change / open) * 100 : 0;
   if (el)  { el.textContent = fmtEur(last); el.className = 'value ' + colorClass(change); }
-  if (sub) sub.textContent =
-    `${change >= 0 ? '+' : ''}${fmt(change, 2)} (${changePct >= 0 ? '+' : ''}${fmt(changePct, 2)}%) · Open: ${dayOpen ? fmtEur(dayOpen) : '—'}`;
+  if (sub) sub.textContent = `${change >= 0 ? '+' : ''}${fmt(change, 2)} (${changePct >= 0 ? '+' : ''}${fmt(changePct, 2)}%) · Open: ${first ? fmtEur(first) : '—'}`;
 }
 
 function drawTrendSparkline() {
@@ -2045,11 +2044,10 @@ function _openTrendModal() {
   document.getElementById('trend-stat-low').textContent  = dayLow  ? fmtEur(dayLow)  : '—';
   document.getElementById('trend-stat-prev').textContent = open    ? fmtEur(open)     : '—';
 
-  // Update sub heading — use same base as graph (prevClose)
+  // Update sub heading
   const last = points[points.length - 1]?.p;
-  const modalBase = open || points[0]?.p;
-  const change = modalBase ? last - modalBase : 0;
-  const pct    = modalBase ? (change / modalBase) * 100 : 0;
+  const change = open ? last - open : 0;
+  const pct    = open ? (change / open) * 100 : 0;
   document.getElementById('trend-modal-sub').textContent =
     `Last: €${fmt(last)} · ${change >= 0 ? '+' : ''}${fmt(change, 2)} (${pct >= 0 ? '+' : ''}${fmt(pct, 2)}%) · ${points.length} data points`;
 
