@@ -2047,9 +2047,9 @@ function _openTrendModal() {
 
   // Update sub heading — use same base as graph (prevClose)
   const last = points[points.length - 1]?.p;
-  const base = open || points[0]?.p;
-  const change = base ? last - base : 0;
-  const pct    = base ? (change / base) * 100 : 0;
+  const modalBase = open || points[0]?.p;
+  const change = modalBase ? last - modalBase : 0;
+  const pct    = modalBase ? (change / modalBase) * 100 : 0;
   document.getElementById('trend-modal-sub').textContent =
     `Last: €${fmt(last)} · ${change >= 0 ? '+' : ''}${fmt(change, 2)} (${pct >= 0 ? '+' : ''}${fmt(pct, 2)}%) · ${points.length} data points`;
 
