@@ -1530,8 +1530,11 @@ function renderKPIs() {
 
   let totalCost = 0, totalCurrentValue = 0;
   heldRows.forEach(r => {
-    const qty = num(r['BALANCE QUANTITY']);
-    const costPerShare = num(r['PURCHASE PRICE (INR)']);
+    const qty        = num(r['BALANCE QUANTITY']);
+    const inrPrice   = num(r['PURCHASE PRICE (INR)']);
+    const eurPrice   = num(r['PURCHASE PRICE (EURO)']);
+    const buyRate    = num(r['BUY EXCHANGE RATE (EURO>INR)']);
+    const costPerShare = inrPrice > 0 ? inrPrice : eurPrice * buyRate;
     totalCost += qty * costPerShare;
     if (priceInr > 0) totalCurrentValue += qty * priceInr;
   });
