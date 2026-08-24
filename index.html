@@ -1557,6 +1557,7 @@ function renderKPIs() {
   const avgCostInr = totalQtyHeld > 0 ? totalCost / totalQtyHeld : 0;
   const beEur  = (avgCostInr > 0 && rate > 0)     ? avgCostInr / rate     : null;
   const beRate = (avgCostInr > 0 && priceEur > 0)  ? avgCostInr / priceEur : null;
+  _beEur = beEur; // share with trend chart
 
   let totalRealised = 0;
   soldRows.forEach(r => totalRealised += num(r['CAPITAL GAIN (INR)']));
@@ -1947,6 +1948,7 @@ function changePage(dir) {
 
 // ─── SAP Today Trend Chart ───────────────────────────────────────────────────
 let _trendData = null; // cached { points, open }
+let _beEur = null;     // current break-even EUR price — updated by renderKPIs
 
 async function fetchTrendData() {
   try {
@@ -2031,6 +2033,14 @@ function drawTrendSparkline() {
   ctx.beginPath(); ctx.arc(lx, ly, 3, 0, Math.PI * 2);
   ctx.fillStyle = prices[prices.length - 1] >= base ? '#16a34a' : '#dc2626';
   ctx.fill();
+
+  // Break-even line (orange dashed) — only if within visible Y range
+  if (_beEur && _beEur >= minV && _beEur <= maxV) {
+    const beY = toY(_beEur);
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1; ctx.setLineDash([3, 2]);
+    ctx.beginPath(); ctx.moveTo(PAD, beY); ctx.lineTo(W - PAD, beY); ctx.stroke();
+    ctx.setLineDash([]);
+  }
 }
 
 function openTrendChart() {
@@ -2157,6 +2167,16 @@ function _openTrendModal() {
     ctx.setLineDash([]);
     ctx.fillStyle = 'rgba(26,111,212,0.9)';
     ctx.fillText('Open €' + fmt(marketOpen, 2), PAD.left + 4, openY - 3);
+  }
+
+  // Break-even line (orange dashed) with label
+  if (_beEur && _beEur >= minV && _beEur <= maxV) {
+    const beY = toY(_beEur);
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]);
+    ctx.beginPath(); ctx.moveTo(PAD.left, beY); ctx.lineTo(PAD.left + cW, beY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(245,158,11,0.9)'; ctx.textAlign = 'left'; ctx.font = '10px system-ui';
+    ctx.fillText('Break-even €' + fmt(_beEur, 2), PAD.left + 4, beY - 3);
   }
 
   // Last price dot
