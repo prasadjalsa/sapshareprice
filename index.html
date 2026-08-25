@@ -18,6 +18,18 @@
     --muted: #6b7280;
     --radius: 10px;
   }
+  body.dark {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3248;
+    --accent: #4f8ef7;
+    --green: #22c55e;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --text: #e2e8f0;
+    --muted: #8892a4;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
   a { color: var(--accent); }
@@ -108,7 +120,10 @@
     <h1>SAP Share Portfolio</h1>
     <div class="tagline">Profit &amp; Loss Dashboard &mdash; prices in INR</div>
   </div>
-  <button onclick="openHelp()" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:13px;font-weight:600">? Help</button>
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+    <button id="dark-toggle" onclick="toggleDark()" title="Toggle dark mode" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 12px;cursor:pointer;font-size:16px">🌙</button>
+    <button onclick="openHelp()" style="background:var(--surface2);border:1px solid var(--border);color:var(--accent);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:13px;font-weight:600">? Help</button>
+  </div>
 </header>
 
 <div class="main">
@@ -2672,6 +2687,23 @@ function checkMonthlyReminder() {
   document.getElementById('monthly-reminder').style.display = 'block';
 }
 
+// ─── Dark Mode ───────────────────────────────────────────────────────────────
+function toggleDark() {
+  const isDark = document.body.classList.toggle('dark');
+  localStorage.setItem('dark_mode', isDark ? '1' : '0');
+  document.getElementById('dark-toggle').textContent = isDark ? '☀️' : '🌙';
+}
+
+function applyDarkPreference() {
+  const pref = localStorage.getItem('dark_mode');
+  const prefersDark = pref === '1' || (pref === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (prefersDark) {
+    document.body.classList.add('dark');
+    const btn = document.getElementById('dark-toggle');
+    if (btn) btn.textContent = '☀️';
+  }
+}
+
 // ─── Help Modal ──────────────────────────────────────────────────────────────
 function openHelp() {
   document.getElementById('help-modal').style.display = 'flex';
@@ -2693,6 +2725,7 @@ function showHelpTab(tab) {
 // ─── Init ────────────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => { drawTrendSparkline(); });
 (function() {
+  applyDarkPreference(); // apply before render to avoid flash
   updateMarketStateBadge();
   // Restrict date inputs to today or earlier
   const todayStr = new Date().toISOString().slice(0, 10);
