@@ -507,31 +507,35 @@
       <div style="display:flex;flex-direction:column;gap:16px">
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">1</span>
-          <div><strong>Load your CSV</strong><br><span style="color:var(--muted)">In EASYShares go to <em>View Merged Purchase &amp; Sell Transactions</em> and download the CSV. Click <b>Load CSV file</b> in the top bar to import it. Data saves to your browser automatically.</span></div>
+          <div><strong>Load your CSV</strong><br><span style="color:var(--muted)">In EASYShares go to <em>View Merged Purchase &amp; Sell Transactions</em> and download the CSV. Click <b>Load CSV file</b> in the top bar to import it. Data saves to your browser automatically — no need to reload next time.</span></div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">2</span>
-          <div><strong>Live prices auto-fetch</strong><br><span style="color:var(--muted)">SAP EUR price and EUR→INR rate load automatically. Click <b>⟳ Refresh Prices</b> to update. Enable <b>Auto (15 min)</b> for hands-free refresh.</span></div>
+          <div><strong>Live prices auto-fetch</strong><br><span style="color:var(--muted)">SAP EUR price (Frankfurt/XETRA) and EUR→INR rate load automatically on page open. The market status badge shows if XETRA is open or closed. Enable <b>Auto (15 min)</b> for hands-free refresh — it disables automatically when market is closed.</span></div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">3</span>
-          <div><strong>Review your portfolio</strong><br><span style="color:var(--muted)">The tiles at the top show your holdings, current value, unrealised P&amp;L, break-even price, and realised gains. Click the chart tiles to see detailed graphs.</span></div>
+          <div><strong>Review your portfolio</strong><br><span style="color:var(--muted)">The tiles show holdings, current value, unrealised P&amp;L, break-even, and realised gains. The break-even tile turns green when SAP price is above your break-even. Click the P&amp;L and SAP Today tiles for detailed charts.</span></div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">4</span>
-          <div><strong>Add new purchases</strong><br><span style="color:var(--muted)">Use <b>Add New Purchase / Award Row</b> to record new lots. The exchange rate toggle lets you enter EUR→INR or INR→EUR.</span></div>
+          <div><strong>Add new purchases</strong><br><span style="color:var(--muted)">Use <b>Add New Purchase / Award Row</b> to record new lots. The exchange rate toggle lets you enter EUR→INR or INR→EUR — click the pill to flip. Acquisition date cannot be in the future.</span></div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">5</span>
-          <div><strong>Log a sell</strong><br><span style="color:var(--muted)">Use <b>Log Sell</b> to record a sale. Lots are consumed oldest-first (FIFO). Capital gain is calculated automatically. Use <b>Preview Sell</b> first to see the what-if outcome without committing.</span></div>
+          <div><strong>Log or preview a sell</strong><br><span style="color:var(--muted)">Use <b>Log Sell</b> to record a sale (FIFO — oldest lots first). Use <b>Preview Sell</b> to simulate it first — shows capital gain, remaining portfolio, and new break-even without saving anything.</span></div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">6</span>
-          <div><strong>Plan future sells</strong><br><span style="color:var(--muted)">Use <b>Good to Sell 🎯</b> to set a target price and quantity. The app auto-tags the oldest FIFO lots and shows projected proceeds, profit, and P&amp;L % in the tile.</span></div>
+          <div><strong>Plan future sells</strong><br><span style="color:var(--muted)">Use <b>Good to Sell 🎯</b> to set a target price and quantity. The app auto-tags the oldest FIFO lots. The tile shows projected proceeds, profit on those lots, and P&amp;L % vs portfolio average. Tags are saved in your CSV export.</span></div>
         </div>
         <div style="display:flex;gap:14px;align-items:flex-start">
           <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">7</span>
-          <div><strong>Backup your data</strong><br><span style="color:var(--muted)">Click <b>Export CSV</b> regularly to save a timestamped backup. Your data lives in this browser — clearing browser data will erase it.</span></div>
+          <div><strong>SAP Today chart</strong><br><span style="color:var(--muted)">The <b>SAP Today</b> tile shows today's intraday price trend (09:00–17:30 CET). The sparkline grows as you refresh throughout the day — history is saved locally and restored on page reload. Click to open the full chart with Open, High, Low, and break-even line.</span></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">8</span>
+          <div><strong>Backup your data</strong><br><span style="color:var(--muted)">Click <b>Export CSV</b> regularly to save a timestamped backup including Good to Sell tags. Your data lives in this browser — clearing browser data will erase it.</span></div>
         </div>
       </div>
     </div>
@@ -541,53 +545,57 @@
         <div>
           <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Live Prices</div>
           <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
-            <li>⟳ Auto-fetches SAP.DE price (Frankfurt/XETRA in EUR)</li>
+            <li>⟳ Auto-fetches SAP.DE price (Frankfurt/XETRA EUR)</li>
             <li>⟳ Sources: Google Finance → Yahoo q1 → Yahoo q2</li>
-            <li>⟳ 5-minute cache — avoids rate limits</li>
-            <li>⟳ EUR→INR rate from frankfurter.dev</li>
-            <li>⟳ Auto-refresh every 15 minutes (optional)</li>
+            <li>⟳ 5-minute Cloudflare cache — avoids rate limits</li>
+            <li>⟳ EUR→INR rate from frankfurter.dev (ECB mid-market)</li>
+            <li>⟳ Auto-refresh every 15 min — disabled when market closed</li>
+            <li>⟳ Market status badge: Open/Pre-market/Closed with countdown</li>
+            <li>⟳ Last refresh time persists across page reloads</li>
           </ul>
         </div>
         <div>
           <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">KPI Tiles</div>
           <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
-            <li>📊 Shares Held (Own SAP + Move SAP breakdown)</li>
+            <li>📊 Shares Held (Own SAP + Move SAP split)</li>
             <li>📊 Total Cost Basis &amp; avg cost/share</li>
             <li>📊 Current Value at live price</li>
-            <li>📊 Unrealised P&amp;L + cumulative chart (click)</li>
-            <li>📊 P&amp;L % by Date + per-lot chart (click)</li>
-            <li>📊 Break-even EUR price &amp; exchange rate</li>
+            <li>📊 Unrealised P&amp;L — green/red + cumulative chart</li>
+            <li>📊 P&amp;L % by Date — per-lot sparkline + chart</li>
+            <li>📊 Break-even EUR price — green above, red below</li>
             <li>📊 Realised Capital Gain &amp; Total P&amp;L</li>
-            <li>🎯 Good to Sell — target proceeds, profit &amp; P&amp;L %</li>
+            <li>🎯 Good to Sell — target proceeds, lot profit, P&amp;L %</li>
+            <li>📈 SAP Today — intraday trend with persistent history</li>
           </ul>
         </div>
         <div>
           <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Sell Tools</div>
           <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
-            <li>📋 Log Sell — FIFO sell with capital gain calculation</li>
-            <li>👁 Preview Sell — what-if modal, no data changed</li>
-            <li>🎯 Good to Sell — set target price &amp; qty, auto-tags FIFO lots</li>
-            <li>🎯 Tagged lots shown with 🎯 badge in held table</li>
-            <li>🗑 Clear All — remove all Good to Sell tags</li>
+            <li>📋 Log Sell — FIFO with capital gain (STCG/LTCG)</li>
+            <li>👁 Preview Sell — what-if: gain, new break-even, portfolio after</li>
+            <li>🎯 Good to Sell — FIFO auto-tag with target price &amp; date</li>
+            <li>🗑 Clear All — remove Good to Sell tags</li>
           </ul>
         </div>
         <div>
           <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Held Shares Table</div>
           <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
             <li>🔍 Filter by Plan Type &amp; Status (Profit/Loss/Hold)</li>
-            <li>↕ Sort by Acquisition Date</li>
-            <li>📄 Pagination (10/20/40/50 per page)</li>
-            <li>✎ Inline edit: date, plan type, price, rate, qty</li>
+            <li>↕ Sort by Acquisition Date (newest first by default)</li>
+            <li>📄 Pagination — 10/20/40/50 per page</li>
+            <li>✎ Inline edit: date, plan type, buy price, rate, qty</li>
             <li>🗑 Delete rows in edit mode</li>
           </ul>
         </div>
         <div>
           <div style="font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase;font-size:11px;letter-spacing:.5px">Data Management</div>
           <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;color:var(--muted)">
-            <li>📥 Load CSV — from EASYShares (View Merged Purchase &amp; Sell Transactions)</li>
+            <li>📥 Load CSV — from EASYShares</li>
             <li>🔀 Merge CSV — add new rows, skip duplicates</li>
-            <li>📤 Export CSV — timestamped backup</li>
+            <li>📤 Export CSV — timestamped, includes Good to Sell tags</li>
             <li>🗑 Clear Storage — wipe browser data</li>
+            <li>🌙 Dark mode toggle — remembers your preference</li>
+            <li>📅 Monthly reminder if no purchase logged after the 8th</li>
           </ul>
         </div>
       </div>
@@ -608,6 +616,10 @@
           <div style="color:var(--muted)">The price is cached for 5 minutes. Wait for the countdown on the Refresh button to finish, then click it again. If it still fails, Google/Yahoo may be rate-limiting — try again in a few minutes.</div>
         </div>
         <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">Why does Auto-refresh get disabled?</div>
+          <div style="color:var(--muted)">Auto-refresh automatically disables when XETRA market is closed (after 17:30 CET, weekends). This prevents unnecessary API calls when the price isn't changing. It re-enables when market opens.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">My data disappeared after refresh — why?</div>
           <div style="color:var(--muted)">Clearing browser history/cache wipes localStorage. Always export a CSV backup before clearing. You can reload from the CSV using Load CSV file.</div>
         </div>
@@ -621,24 +633,34 @@
         </div>
         <div style="border-bottom:1px solid var(--border);padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">What is Good to Sell?</div>
-          <div style="color:var(--muted)">Enter a target price and quantity in the <b>Good to Sell</b> section. The app auto-tags the oldest FIFO lots needed. The tile shows projected proceeds, actual profit on those lots, and P&amp;L % vs portfolio average cost.</div>
+          <div style="color:var(--muted)">Enter a target price and quantity in the <b>Good to Sell</b> section. The app auto-tags the oldest FIFO lots needed. The tile shows projected proceeds, actual profit on those lots, and P&amp;L % vs portfolio average. Tags export with your CSV and restore on import.</div>
         </div>
         <div style="border-bottom:1px solid var(--border);padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">What is Break-even?</div>
-          <div style="color:var(--muted)">The SAP EUR price (at current exchange rate) at which your total portfolio would be exactly at zero P&amp;L. If SAP trades above this, you're in profit.</div>
+          <div style="color:var(--muted)">The SAP EUR price (at current exchange rate) at which your total portfolio would be exactly at zero P&amp;L. The tile turns green when SAP trades above break-even. It also appears as an orange line in the SAP Today chart.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">What is the SAP Today chart?</div>
+          <div style="color:var(--muted)">The SAP Today tile shows today's intraday price from XETRA (09:00–17:30 CET). The chart history is saved locally and grows with each refresh — so refreshing at 12:00 shows the full 09:00–12:00 trend. The orange dashed line is your break-even price.</div>
         </div>
         <div style="border-bottom:1px solid var(--border);padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">What is STCG / LTCG?</div>
           <div style="color:var(--muted)">Short Term Capital Gain (held &lt; 1 year) and Long Term Capital Gain (held &ge; 1 year). These come from your sell transaction records.</div>
         </div>
         <div style="border-bottom:1px solid var(--border);padding:14px 0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px">What is the EUR→INR rate shown?</div>
+          <div style="color:var(--muted)">It's the ECB mid-market rate from frankfurter.dev — neither TT buy nor TT sell. Your bank's actual TT buy rate (for EUR→INR conversion) will typically be 1–2% lower. You can manually enter your bank's rate and click <b>Apply Prices</b> for more accurate figures.</div>
+        </div>
+        <div style="border-bottom:1px solid var(--border);padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">Can I use this on mobile?</div>
-          <div style="color:var(--muted)">Yes — the layout is responsive and works on mobile browsers.</div>
+          <div style="color:var(--muted)">Yes — the layout is responsive and works on mobile browsers. Use the 🌙 toggle for dark mode if preferred.</div>
         </div>
         <div style="padding:14px 0">
           <div style="font-weight:600;color:var(--text);margin-bottom:4px">Can I edit mistakes in my data?</div>
-          <div style="color:var(--muted)">Yes — click ✎ Edit in the Currently Held Shares or Transaction History section headers to enter edit mode. Cells become inputs, click ✔ Save All when done.</div>
+          <div style="color:var(--muted)">Yes — click ✎ Edit in the Currently Held Shares or Transaction History section headers to enter edit mode. Cells become inputs, click ✔ Save All when done. You can also delete rows in edit mode.</div>
         </div>
+      </div>
+    </div>
       </div>
     </div>
   </div>
