@@ -1953,17 +1953,48 @@ function changePage(dir) {
 let _trendData = null; // cached { points, open }
 let _beEur = null;     // current break-even EUR price — updated by renderKPIs
 
+const TREND_KEY = () => {
+  // Use CET/CEST date so key rolls over at midnight Frankfurt time
+  const now = new Date();
+  const cetOffset = getGermanyCETOffset(now) * 3600000;
+  const cetNow = new Date(now.getTime() + cetOffset);
+  return 'sap_trend_' + cetNow.toISOString().slice(0, 10);
+};
+
 async function fetchTrendData() {
   try {
     const res  = await fetch('/api/sap-chart');
     const json = await res.json();
-    if (json.points && json.points.length > 0) {
-      _trendData = json;
-      drawTrendSparkline();
-      updateTrendTile();
-    } else {
+    if (!json.points || !json.points.length) {
       document.getElementById('trend-tile-sub').textContent = 'No data yet';
+      return;
     }
+
+    // Load today's stored history and merge
+    const key    = TREND_KEY();
+    const stored = JSON.parse(localStorage.getItem(key) || 'null');
+    const storedPoints = stored?.points || [];
+
+    // Merge: combine + deduplicate by timestamp, sort ascending
+    const mergedMap = new Map();
+    [...storedPoints, ...json.points].forEach(pt => mergedMap.set(pt.t, pt));
+    const sortedPoints = [...mergedMap.values()].sort((a, b) => a.t - b.t);
+
+    // Build merged trendData — keep best dayHigh/dayLow across fetches
+    _trendData = {
+      ...json,
+      points:  sortedPoints,
+      dayHigh: (json.dayHigh && stored?.dayHigh) ? Math.max(json.dayHigh, stored.dayHigh)
+               : (json.dayHigh || stored?.dayHigh || null),
+      dayLow:  (json.dayLow  && stored?.dayLow)  ? Math.min(json.dayLow,  stored.dayLow)
+               : (json.dayLow  || stored?.dayLow  || null),
+    };
+
+    // Persist merged data for today
+    localStorage.setItem(key, JSON.stringify(_trendData));
+
+    drawTrendSparkline();
+    updateTrendTile();
   } catch(e) {
     document.getElementById('trend-tile-sub').textContent = 'Unavailable';
   }
@@ -2021,7 +2052,7 @@ function drawTrendSparkline() {
   ctx.beginPath(); ctx.moveTo(PAD, baseY); ctx.lineTo(W - PAD, baseY); ctx.stroke();
   ctx.setLineDash([]);
 
-  // Segment-coloured line positioned by timestamp
+  // Segment-coloured line + dot per candle positioned by timestamp
   for (let i = 1; i < points.length; i++) {
     ctx.beginPath();
     ctx.moveTo(toX(points[i-1].t), toY(prices[i-1]));
@@ -2029,6 +2060,12 @@ function drawTrendSparkline() {
     ctx.strokeStyle = prices[i] >= base ? '#16a34a' : '#dc2626';
     ctx.lineWidth = 1.5; ctx.stroke();
   }
+  // Dot per candle (small)
+  points.forEach((pt, i) => {
+    ctx.beginPath(); ctx.arc(toX(pt.t), toY(prices[i]), 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = prices[i] >= base ? '#16a34a' : '#dc2626';
+    ctx.fill();
+  });
 
   // Last dot
   const lx = toX(points[points.length - 1].t);
@@ -2149,7 +2186,7 @@ function _openTrendModal() {
   grad.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = grad; ctx.fill();
 
-  // Price line (segment-coloured)
+  // Price line (segment-coloured) + dot per candle
   for (let i = 1; i < points.length; i++) {
     ctx.beginPath();
     ctx.moveTo(toX(points[i-1].t), toY(points[i-1].p));
@@ -2157,6 +2194,12 @@ function _openTrendModal() {
     ctx.strokeStyle = points[i].p >= base ? '#16a34a' : '#dc2626';
     ctx.lineWidth = 2; ctx.stroke();
   }
+  // Dot per candle
+  points.forEach(pt => {
+    ctx.beginPath(); ctx.arc(toX(pt.t), toY(pt.p), 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = pt.p >= base ? '#16a34a' : '#dc2626';
+    ctx.fill();
+  });
 
   // Threshold labels on top
   ctx.font = '10px system-ui'; ctx.textAlign = 'left';
@@ -2654,6 +2697,18 @@ window.addEventListener('resize', () => { drawTrendSparkline(); });
   // Restrict date inputs to today or earlier
   const todayStr = new Date().toISOString().slice(0, 10);
   document.getElementById('f-date').max = todayStr;
+
+  // Restore today's trend data instantly from localStorage
+  const storedTrend = JSON.parse(localStorage.getItem(TREND_KEY()) || 'null');
+  if (storedTrend?.points?.length) {
+    _trendData = storedTrend;
+    requestAnimationFrame(() => { drawTrendSparkline(); updateTrendTile(); });
+  }
+  // Clean up trend data from previous days
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('sap_trend_') && k !== TREND_KEY())
+    .forEach(k => localStorage.removeItem(k));
+
   const origin = window.location.href.replace(/[^/]*$/, '');
   const saved = loadFromStorage();
   if (saved && saved.length > 0) {
