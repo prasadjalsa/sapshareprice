@@ -269,7 +269,7 @@
     <div class="add-form" id="add-form">
       <div class="field">
         <label>Acquisition Date *</label>
-        <input type="date" id="f-date">
+        <input type="date" id="f-date" max="">
       </div>
       <div class="field">
         <label>Activity *</label>
@@ -855,6 +855,9 @@ function addRow() {
 
   if (!date || isNaN(priceEur) || isNaN(qty)) {
     status('Please fill Acquisition Date, Purchase Price (EUR), and Quantity.'); return;
+  }
+  if (date > new Date().toISOString().slice(0, 10)) {
+    alert('Acquisition Date cannot be in the future.'); return;
   }
 
   const priceInr = rate ? priceEur * rate : 0;
@@ -2647,7 +2650,10 @@ function showHelpTab(tab) {
 // ─── Init ────────────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => { drawTrendSparkline(); });
 (function() {
-  updateMarketStateBadge(); // show market state immediately on load
+  updateMarketStateBadge();
+  // Restrict date inputs to today or earlier
+  const todayStr = new Date().toISOString().slice(0, 10);
+  document.getElementById('f-date').max = todayStr;
   const origin = window.location.href.replace(/[^/]*$/, '');
   const saved = loadFromStorage();
   if (saved && saved.length > 0) {
