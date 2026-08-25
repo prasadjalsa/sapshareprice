@@ -1347,17 +1347,38 @@ function renderAll() {
 // ─── Live Price Fetch ─────────────────────────────────────────────────────────
 let _cooldownTimer = null;
 let _autoRefreshTimer = null;
-let _autoRefreshScheduledAt = 0; // timestamp when the 15-min cycle started
+let _autoRefreshScheduledAt = 0;
+let _autoLabelTimer = null; // keeps "auto in X min" updating after cooldown expires
 const AUTO_REFRESH_MS = 15 * 60 * 1000; // 15 minutes
+
+function _updateAutoLabel() {
+  const lbl = document.getElementById('price-last-updated');
+  if (!lbl || _autoRefreshScheduledAt <= 0) return;
+  const elapsed       = Math.floor((Date.now() - _autoRefreshScheduledAt) / 1000);
+  const autoRemaining = Math.max(0, Math.round(AUTO_REFRESH_MS / 1000) - elapsed);
+  const am = Math.floor(autoRemaining / 60), as2 = autoRemaining % 60;
+  const base = lbl.dataset.base || '';
+  // Only update the auto part — don't overwrite cooldown text on btn
+  if (!document.getElementById('refresh-btn').disabled) {
+    lbl.textContent = base + ` | auto in ${am}m ${as2 < 10 ? '0'+as2 : as2}s`;
+  }
+}
 
 function toggleAutoRefresh() {
   const on = document.getElementById('auto-refresh-toggle').checked;
   if (on) {
     _scheduleAutoRefresh();
+    if (_autoLabelTimer) clearInterval(_autoLabelTimer);
+    _autoLabelTimer = setInterval(_updateAutoLabel, 1000);
+    _updateAutoLabel();
     status('Auto-refresh enabled — prices will update every 15 minutes.');
   } else {
     if (_autoRefreshTimer) { clearTimeout(_autoRefreshTimer); _autoRefreshTimer = null; }
+    if (_autoLabelTimer)   { clearInterval(_autoLabelTimer);  _autoLabelTimer = null; }
     _autoRefreshScheduledAt = 0;
+    // Reset label to just the base
+    const lbl = document.getElementById('price-last-updated');
+    if (lbl) lbl.textContent = lbl.dataset.base || '';
     status('Auto-refresh disabled.');
   }
 }
@@ -1369,6 +1390,9 @@ function _scheduleAutoRefresh() {
     if (!document.getElementById('auto-refresh-toggle').checked) return;
     await fetchLivePrices();
     _scheduleAutoRefresh();
+    // Restart label timer for new cycle
+    if (_autoLabelTimer) clearInterval(_autoLabelTimer);
+    _autoLabelTimer = setInterval(_updateAutoLabel, 1000);
   }, AUTO_REFRESH_MS);
 }
 
