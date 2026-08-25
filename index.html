@@ -1300,6 +1300,25 @@ function updateMarketStateBadge(apiState) {
     badge.style.color      = '#fff';
     badge.style.display    = 'inline';
     badge.title            = title;
+
+    // Grey out auto-refresh when market is closed — no point calling Yahoo
+    const chk   = document.getElementById('auto-refresh-toggle');
+    const lbl   = chk?.nextSibling;
+    if (chk) {
+      if (!isOpen) {
+        chk.disabled = true;
+        chk.title    = 'Auto-refresh disabled — XETRA is closed';
+        if (chk.checked) {
+          chk.checked = false;
+          toggleAutoRefresh(); // stop any running timer
+        }
+        if (chk.parentElement) chk.parentElement.style.opacity = '0.45';
+      } else {
+        chk.disabled = false;
+        chk.title    = '';
+        if (chk.parentElement) chk.parentElement.style.opacity = '1';
+      }
+    }
   }
 
   render();
@@ -1439,14 +1458,17 @@ async function fetchLivePrices() {
   if (sapPrice) document.getElementById('currentPriceEur').value = sapPrice.toFixed(4);
   if (eurInr)   document.getElementById('currentRate').value = eurInr.toFixed(4);
 
-  const now = new Date().toLocaleTimeString();
-  const baseLabel = errors.length ? 'partial — ' + errors.join(', ') : 'Updated ' + now;
+  const now = new Date();
+  const nowStr = now.toLocaleTimeString();
+  const baseLabel = errors.length ? 'partial — ' + errors.join(', ') : 'Updated ' + nowStr;
   lbl.dataset.base = baseLabel;
   lbl.textContent = baseLabel;
+  // Persist timestamp for "X ago" display on reload
+  if (!errors.length) localStorage.setItem('last_price_refresh', now.getTime());
 
   if (sapPrice || eurInr) {
     renderAll();
-    status(errors.length ? errors.join('; ') : `Prices updated at ${now}: SAP €${sapPrice?.toFixed(2)}, EUR→INR ₹${eurInr?.toFixed(2)}`);
+    status(errors.length ? errors.join('; ') : `Prices updated at ${nowStr}: SAP €${sapPrice?.toFixed(2)}, EUR→INR ₹${eurInr?.toFixed(2)}`);
   } else {
     status('Could not fetch prices. Enter manually and click Recalculate.');
   }
@@ -2725,8 +2747,21 @@ function showHelpTab(tab) {
 // ─── Init ────────────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => { drawTrendSparkline(); });
 (function() {
-  applyDarkPreference(); // apply before render to avoid flash
+  applyDarkPreference();
   updateMarketStateBadge();
+
+  // Restore last refresh timestamp
+  const lastRefresh = localStorage.getItem('last_price_refresh');
+  if (lastRefresh) {
+    const lbl = document.getElementById('price-last-updated');
+    const elapsed = Math.floor((Date.now() - parseInt(lastRefresh)) / 60000);
+    const agoStr = elapsed < 1 ? 'just now'
+                 : elapsed < 60 ? `${elapsed}m ago`
+                 : `${Math.floor(elapsed/60)}h ${elapsed%60}m ago`;
+    const base = `Last updated ${agoStr}`;
+    lbl.dataset.base = base;
+    lbl.textContent  = base;
+  }
   // Restrict date inputs to today or earlier
   const todayStr = new Date().toISOString().slice(0, 10);
   document.getElementById('f-date').max = todayStr;
