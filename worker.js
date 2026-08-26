@@ -91,6 +91,21 @@ async function handleSapChart(request) {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
   }
+
+  const CACHE_TTL  = 300; // 5 minutes — same as price cache
+  const cache      = caches.default;
+  const cacheKey   = new Request("https://sap-chart-cache/api/sap-chart");
+
+  // Return cached chart if still fresh
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const data = await cached.json();
+    const age  = Math.round((Date.now() - (data.fetched_at || 0)) / 1000);
+    return new Response(JSON.stringify({ ...data, cached: true, age_seconds: age }), {
+      status: 200, headers: CORS,
+    });
+  }
+
   try {
     const url = 'https://query1.finance.yahoo.com/v8/finance/chart/SAP.DE?range=1d&interval=5m&includePrePost=false';
     const res = await fetch(url, {
@@ -101,7 +116,7 @@ async function handleSapChart(request) {
         "Origin": "https://finance.yahoo.com",
       },
     });
-    const data = await res.json();
+    const data   = await res.json();
     const result = data?.chart?.result?.[0];
     if (!result) throw new Error('No chart data');
     const timestamps = result.timestamp || [];
@@ -110,20 +125,29 @@ async function handleSapChart(request) {
     const highs      = quote.high   || [];
     const lows       = quote.low    || [];
     const opens      = quote.open   || [];
-    const prevClose  = result.meta?.chartPreviousClose || null;
-    // Pair timestamps with closes, filter nulls
-    const points = timestamps
+    const meta       = result.meta  || {};
+    const prevClose  = meta.chartPreviousClose || null;
+    const points     = timestamps
       .map((t, i) => ({ t: t * 1000, p: closes[i] }))
       .filter(pt => pt.p !== null && pt.p !== undefined);
-    // Day high, low, open from intraday candles
     const validHighs = highs.filter(v => v != null);
     const validLows  = lows.filter(v => v != null);
     const dayHigh    = validHighs.length ? Math.max(...validHighs) : null;
     const dayLow     = validLows.length  ? Math.min(...validLows)  : null;
     const dayOpen    = opens.find(v => v != null) || null;
-    return new Response(JSON.stringify({ points, open: prevClose, dayOpen, dayHigh, dayLow }), {
-      status: 200, headers: CORS,
-    });
+    // Include current price + market state so /api/sap-price is no longer needed
+    const currentPrice = meta.regularMarketPrice || (points.length ? points[points.length-1].p : null);
+    const marketState  = meta.marketState || null;
+
+    const payload = {
+      points, open: prevClose, dayOpen, dayHigh, dayLow,
+      price: currentPrice, source: 'Yahoo', marketState,
+      cached: false, age_seconds: 0, fetched_at: Date.now(),
+    };
+    await cache.put(cacheKey, new Response(JSON.stringify(payload), {
+      headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${CACHE_TTL}` },
+    }));
+    return new Response(JSON.stringify(payload), { status: 200, headers: CORS });
   } catch(e) {
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500, headers: CORS,

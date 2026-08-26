@@ -1485,32 +1485,42 @@ async function fetchLivePrices() {
 
   let sapPrice = null, eurInr = null, errors = [], ageSeconds = 0;
 
-  // SAP price — try Cloudflare Worker first (for GitHub Pages), fall back to local server.py
-  // Set your deployed Worker URL here after deploying worker.js to Cloudflare.
-  const SAP_WORKER_URL = 'https://sapshareprice.prasad-jalsa.workers.dev/api/sap-price';
-  const SAP_LOCAL_URL  = '/api/sap-price';
-
-  async function fetchSapPrice(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  }
+  // Single call: /api/sap-chart returns price + chart + marketState (5-min cached)
+  const CHART_WORKER_URL = 'https://sapshareprice.prasad-jalsa.workers.dev/api/sap-chart';
+  const CHART_LOCAL_URL  = '/api/sap-chart';
 
   try {
     let json = null;
     try {
-      json = await fetchSapPrice(SAP_WORKER_URL);
+      const res = await fetch(CHART_WORKER_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      json = await res.json();
     } catch (_) {
-      // Worker not reachable (local dev) — try local server
-      json = await fetchSapPrice(SAP_LOCAL_URL);
+      const res = await fetch(CHART_LOCAL_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      json = await res.json();
     }
     if (json.price) {
-      sapPrice = json.price;
+      sapPrice   = json.price;
       ageSeconds = json.age_seconds || 0;
-      const src = json.source ? ` (${json.source})` : '';
-      if (json.stale) errors.push(`SAP price is stale${src} — ${Math.round(ageSeconds/60)}min old`);
-      // Show market state badge
+      if (json.stale) errors.push(`SAP price is stale — ${Math.round(ageSeconds/60)}min old`);
       updateMarketStateBadge(json.marketState);
+      // Merge chart data into trend history
+      if (json.points?.length) {
+        const key    = TREND_KEY();
+        const stored = JSON.parse(localStorage.getItem(key) || 'null');
+        const storedPoints = stored?.points || [];
+        const mergedMap = new Map();
+        [...storedPoints, ...json.points].forEach(pt => mergedMap.set(pt.t, pt));
+        const sortedPoints = [...mergedMap.values()].sort((a, b) => a.t - b.t);
+        _trendData = {
+          ...json, points: sortedPoints,
+          dayHigh: (json.dayHigh && stored?.dayHigh) ? Math.max(json.dayHigh, stored.dayHigh) : (json.dayHigh || stored?.dayHigh || null),
+          dayLow:  (json.dayLow  && stored?.dayLow)  ? Math.min(json.dayLow,  stored.dayLow)  : (json.dayLow  || stored?.dayLow  || null),
+        };
+        localStorage.setItem(key, JSON.stringify(_trendData));
+        requestAnimationFrame(() => { drawTrendSparkline(); updateTrendTile(); });
+      }
     } else {
       errors.push('SAP price unavailable: ' + (json.error || 'unknown'));
     }
@@ -1550,9 +1560,8 @@ async function fetchLivePrices() {
 
   // Start cooldown — button re-enables once cache TTL expires
   startCooldown(ageSeconds);
-  fetchTrendData();    // load intraday chart in parallel
-  fetchEurInrHistory(); // load EUR→INR 30-day history
-  // Sync live rate into history last point so tile matches input
+  fetchEurInrHistory(); // load EUR→INR 30-day history (once per day)
+  // Sync live rate into history last point
   if (eurInr && _eurInrHistory?.rates?.length) {
     _eurInrHistory.rates[_eurInrHistory.rates.length - 1] = eurInr;
     drawEurInrSparkline();
