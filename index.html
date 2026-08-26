@@ -1544,6 +1544,12 @@ async function fetchLivePrices() {
   startCooldown(ageSeconds);
   fetchTrendData();    // load intraday chart in parallel
   fetchEurInrHistory(); // load EUR→INR 30-day history
+  // Sync live rate into history last point so tile matches input
+  if (eurInr && _eurInrHistory?.rates?.length) {
+    _eurInrHistory.rates[_eurInrHistory.rates.length - 1] = eurInr;
+    drawEurInrSparkline();
+    updateEurInrTile();
+  }
 }
 
 // ─── Collapsible history ──────────────────────────────────────────────────────
