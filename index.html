@@ -2089,44 +2089,6 @@ const TREND_KEY = () => {
   return 'sap_trend_' + cetNow.toISOString().slice(0, 10);
 };
 
-async function fetchTrendData() {
-  try {
-    const res  = await fetch('/api/sap-chart');
-    const json = await res.json();
-    if (!json.points || !json.points.length) {
-      document.getElementById('trend-tile-sub').textContent = 'No data yet';
-      return;
-    }
-
-    // Load today's stored history and merge
-    const key    = TREND_KEY();
-    const stored = JSON.parse(localStorage.getItem(key) || 'null');
-    const storedPoints = stored?.points || [];
-
-    // Merge: combine + deduplicate by timestamp, sort ascending
-    const mergedMap = new Map();
-    [...storedPoints, ...json.points].forEach(pt => mergedMap.set(pt.t, pt));
-    const sortedPoints = [...mergedMap.values()].sort((a, b) => a.t - b.t);
-
-    // Build merged trendData — keep best dayHigh/dayLow across fetches
-    _trendData = {
-      ...json,
-      points:  sortedPoints,
-      dayHigh: (json.dayHigh && stored?.dayHigh) ? Math.max(json.dayHigh, stored.dayHigh)
-               : (json.dayHigh || stored?.dayHigh || null),
-      dayLow:  (json.dayLow  && stored?.dayLow)  ? Math.min(json.dayLow,  stored.dayLow)
-               : (json.dayLow  || stored?.dayLow  || null),
-    };
-
-    // Persist merged data for today
-    localStorage.setItem(key, JSON.stringify(_trendData));
-
-    drawTrendSparkline();
-    updateTrendTile();
-  } catch(e) {
-    document.getElementById('trend-tile-sub').textContent = 'Unavailable';
-  }
-}
 
 function updateTrendTile() {
   if (!_trendData) return;
@@ -2212,7 +2174,7 @@ function drawTrendSparkline() {
 }
 
 function openTrendChart() {
-  if (!_trendData) { fetchTrendData().then(() => _openTrendModal()); return; }
+  if (!_trendData) { status('No intraday data yet — click ⟳ Refresh Prices first.'); return; }
   _openTrendModal();
 }
 
