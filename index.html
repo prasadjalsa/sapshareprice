@@ -1517,9 +1517,17 @@ async function fetchLivePrices() {
   } catch (e) { errors.push('SAP price fetch failed — deploy worker.js or run server.py'); }
 
   try {
-    const res = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR');
-    const json = await res.json();
-    eurInr = json?.rates?.INR;
+    // EUR→INR: fetch once per day — ECB only updates at ~16:00 CET
+    const todayStr  = new Date().toISOString().slice(0, 10);
+    const cachedRate = JSON.parse(localStorage.getItem('eur_inr_rate') || 'null');
+    if (cachedRate && cachedRate.date === todayStr) {
+      eurInr = cachedRate.rate; // use cached — no network call needed
+    } else {
+      const res  = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR');
+      const json = await res.json();
+      eurInr = json?.rates?.INR;
+      if (eurInr) localStorage.setItem('eur_inr_rate', JSON.stringify({ date: todayStr, rate: eurInr }));
+    }
   } catch (e) { errors.push('EUR→INR fetch failed'); }
 
   if (sapPrice) document.getElementById('currentPriceEur').value = sapPrice.toFixed(4);
