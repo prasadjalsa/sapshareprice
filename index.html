@@ -205,6 +205,13 @@
       <div class="sub" id="trend-tile-sub">Loading…</div>
       <canvas id="trend-spark" height="40" style="width:100%;height:40px;display:block;margin-top:auto;padding-top:6px"></canvas>
     </div>
+    <!-- EUR→INR 30-day tile — static -->
+    <div class="kpi" onclick="openEurInrChart()" style="cursor:pointer" title="Click to view 30-day EUR→INR trend">
+      <div class="label">EUR → INR <span style="font-size:10px;color:var(--accent)">↗</span></div>
+      <div class="value neu" id="eurinr-tile-value" style="font-size:18px">—</div>
+      <div class="sub" id="eurinr-tile-sub">30-day trend</div>
+      <canvas id="eurinr-spark" height="40" style="width:100%;height:40px;display:block;margin-top:auto;padding-top:6px"></canvas>
+    </div>
     <!-- Good to Sell tile — static -->
     <div class="kpi" onclick="openSellTargetSummary()" style="cursor:pointer" title="Click to view tagged lots">
       <div class="label">Good to Sell 🎯</div>
@@ -458,6 +465,20 @@
       <div><span style="color:var(--muted)">Low</span>  <strong id="trend-stat-low" style="color:var(--red)">—</strong></div>
       <div><span style="color:var(--muted)">Prev Close</span> <strong id="trend-stat-prev">—</strong></div>
     </div>
+  </div>
+</div>
+
+<!-- EUR→INR 30-day Modal -->
+<div id="eurinr-modal" onclick="if(event.target===this)closeEurInrChart()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:min(860px,95vw);max-height:90vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <h2 style="font-size:16px;font-weight:700">EUR → INR Rate — Last 30 Working Days</h2>
+        <div style="font-size:12px;color:var(--muted)" id="eurinr-modal-sub"></div>
+      </div>
+      <button onclick="closeEurInrChart()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <canvas id="eurinr-canvas" style="width:100%;height:340px"></canvas>
   </div>
 </div>
 
@@ -1521,7 +1542,8 @@ async function fetchLivePrices() {
 
   // Start cooldown — button re-enables once cache TTL expires
   startCooldown(ageSeconds);
-  fetchTrendData(); // load intraday chart in parallel
+  fetchTrendData();    // load intraday chart in parallel
+  fetchEurInrHistory(); // load EUR→INR 30-day history
 }
 
 // ─── Collapsible history ──────────────────────────────────────────────────────
@@ -2320,6 +2342,195 @@ function closeTrendChart() {
   document.getElementById('trend-modal').style.display = 'none';
 }
 
+// ─── EUR→INR 30-day Chart ────────────────────────────────────────────────────
+let _eurInrHistory = null; // cached { dates, rates, fetched_date }
+
+async function fetchEurInrHistory() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // Use localStorage cache — only refetch once per day
+  try {
+    const cached = JSON.parse(localStorage.getItem('eur_inr_history') || 'null');
+    if (cached && cached.fetched_date === todayStr && cached.dates?.length >= 20) {
+      _eurInrHistory = cached;
+      drawEurInrSparkline();
+      updateEurInrTile();
+      return;
+    }
+  } catch(_) {}
+
+  // Fetch ~43 calendar days to get 30 working days
+  const end   = todayStr;
+  const start = new Date(Date.now() - 43 * 86400000).toISOString().slice(0, 10);
+  try {
+    const res  = await fetch(`https://api.frankfurter.dev/v1/${start}..${end}?from=EUR&to=INR`);
+    const json = await res.json();
+    const dates = Object.keys(json.rates).sort();
+    // Keep last 30 working days only
+    const last30 = dates.slice(-30);
+    _eurInrHistory = {
+      dates: last30,
+      rates: last30.map(d => json.rates[d].INR),
+      fetched_date: todayStr,
+    };
+    localStorage.setItem('eur_inr_history', JSON.stringify(_eurInrHistory));
+    drawEurInrSparkline();
+    updateEurInrTile();
+  } catch(e) {
+    document.getElementById('eurinr-tile-sub').textContent = 'Unavailable';
+  }
+}
+
+function updateEurInrTile() {
+  if (!_eurInrHistory) return;
+  const { rates } = _eurInrHistory;
+  const last   = rates[rates.length - 1];
+  const first  = rates[0];
+  const change    = last - first;
+  const changePct = (change / first) * 100;
+  const el  = document.getElementById('eurinr-tile-value');
+  const sub = document.getElementById('eurinr-tile-sub');
+  if (el)  { el.textContent = '₹' + fmt(last, 4); el.className = 'value ' + colorClass(change); }
+  if (sub) sub.textContent = `${change >= 0 ? '+' : ''}${fmt(change, 4)} (${changePct >= 0 ? '+' : ''}${fmt(changePct, 2)}%) vs 30d ago`;
+}
+
+function drawEurInrSparkline() {
+  const canvas = document.getElementById('eurinr-spark');
+  if (!canvas || !canvas.parentElement || !_eurInrHistory) return;
+  const { rates } = _eurInrHistory;
+  if (!rates.length) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W   = Math.max(canvas.parentElement.getBoundingClientRect().width - 36, 190);
+  const H   = 40;
+  canvas.width  = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+
+  const minV  = Math.min(...rates);
+  const maxV  = Math.max(...rates);
+  const range = maxV - minV || 0.1;
+  const PAD   = 3;
+  const toX   = i => PAD + (i / (rates.length - 1)) * (W - PAD * 2);
+  const toY   = v => PAD + (H - PAD * 2) - ((v - minV) / range) * (H - PAD * 2);
+  const first = rates[0];
+
+  // Baseline (30d ago rate)
+  const baseY = toY(first);
+  ctx.strokeStyle = '#d1d9e0'; ctx.lineWidth = 1; ctx.setLineDash([3, 2]);
+  ctx.beginPath(); ctx.moveTo(PAD, baseY); ctx.lineTo(W - PAD, baseY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Segment-coloured line
+  for (let i = 1; i < rates.length; i++) {
+    ctx.beginPath();
+    ctx.moveTo(toX(i - 1), toY(rates[i - 1]));
+    ctx.lineTo(toX(i),     toY(rates[i]));
+    ctx.strokeStyle = rates[i] >= first ? '#16a34a' : '#dc2626';
+    ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // Last dot
+  const lx = toX(rates.length - 1), ly = toY(rates[rates.length - 1]);
+  ctx.beginPath(); ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+  ctx.fillStyle = rates[rates.length - 1] >= first ? '#16a34a' : '#dc2626';
+  ctx.fill();
+}
+
+function openEurInrChart() {
+  if (!_eurInrHistory) { fetchEurInrHistory().then(() => _drawEurInrModal()); return; }
+  _drawEurInrModal();
+}
+
+function _drawEurInrModal() {
+  if (!_eurInrHistory) { status('EUR→INR history not available yet.'); return; }
+  const { dates, rates } = _eurInrHistory;
+  document.getElementById('eurinr-modal').style.display = 'flex';
+
+  const last  = rates[rates.length - 1];
+  const first = rates[0];
+  const change    = last - first;
+  const changePct = (change / first) * 100;
+  document.getElementById('eurinr-modal-sub').textContent =
+    `Current: ₹${fmt(last, 4)} · ${change >= 0 ? '+' : ''}${fmt(change, 4)} (${changePct >= 0 ? '+' : ''}${fmt(changePct, 2)}%) over ${dates.length} working days`;
+
+  const canvas = document.getElementById('eurinr-canvas');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 800, H = 340;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+
+  const PAD  = { top: 20, right: 20, bottom: 60, left: 70 };
+  const cW   = W - PAD.left - PAD.right;
+  const cH   = H - PAD.top - PAD.bottom;
+  const minV = Math.min(...rates);
+  const maxV = Math.max(...rates);
+  const range = maxV - minV || 0.1;
+  const toX  = i => PAD.left + (i / (rates.length - 1)) * cW;
+  const toY  = v => PAD.top + cH - ((v - minV) / range) * cH;
+
+  // Y grid + labels
+  ctx.font = '11px system-ui'; ctx.fillStyle = '#6b7280'; ctx.textAlign = 'right';
+  for (let t = 0; t <= 5; t++) {
+    const v = minV + (range / 5) * t, y = toY(v);
+    ctx.strokeStyle = '#d1d9e0'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    ctx.fillText('₹' + fmt(v, 2), PAD.left - 6, y + 4);
+  }
+
+  // Baseline (30d ago)
+  const baseY = toY(first);
+  ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(PAD.left, baseY); ctx.lineTo(PAD.left + cW, baseY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(107,114,128,0.9)'; ctx.textAlign = 'left'; ctx.font = '10px system-ui';
+  ctx.fillText('30d ago ₹' + fmt(first, 4), PAD.left + 4, baseY - 3);
+
+  // Area fill
+  ctx.beginPath();
+  ctx.moveTo(toX(0), baseY);
+  rates.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.lineTo(toX(rates.length - 1), baseY);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + cH);
+  const isUp = rates[rates.length - 1] >= first;
+  grad.addColorStop(0, isUp ? 'rgba(22,163,74,0.18)' : 'rgba(220,38,38,0.18)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line + dots
+  for (let i = 1; i < rates.length; i++) {
+    ctx.beginPath();
+    ctx.moveTo(toX(i - 1), toY(rates[i - 1]));
+    ctx.lineTo(toX(i),     toY(rates[i]));
+    ctx.strokeStyle = rates[i] >= first ? '#16a34a' : '#dc2626';
+    ctx.lineWidth = 2; ctx.stroke();
+  }
+  rates.forEach((v, i) => {
+    ctx.beginPath(); ctx.arc(toX(i), toY(v), 3, 0, Math.PI * 2);
+    ctx.fillStyle = v >= first ? '#16a34a' : '#dc2626'; ctx.fill();
+  });
+
+  // X-axis date labels (every ~5 days)
+  const step = Math.max(1, Math.floor(dates.length / 8));
+  ctx.fillStyle = '#6b7280'; ctx.font = '10px system-ui';
+  dates.forEach((d, i) => {
+    if (i % step !== 0 && i !== dates.length - 1) return;
+    ctx.save();
+    ctx.translate(toX(i), PAD.top + cH + 10);
+    ctx.rotate(-Math.PI / 4);
+    ctx.textAlign = 'right';
+    ctx.fillText(d.slice(5), 0, 0); // show MM-DD
+    ctx.restore();
+  });
+}
+
+function closeEurInrChart() {
+  document.getElementById('eurinr-modal').style.display = 'none';
+}
+
 // ─── P&L Chart ───────────────────────────────────────────────────────────────
 function drawSparklinePerLot(heldRows, priceInr, canvasId) {
   const canvas = document.getElementById(canvasId);
@@ -2822,6 +3033,15 @@ window.addEventListener('resize', () => { drawTrendSparkline(); });
   Object.keys(localStorage)
     .filter(k => k.startsWith('sap_trend_') && k !== TREND_KEY())
     .forEach(k => localStorage.removeItem(k));
+
+  // Restore EUR→INR history from cache
+  try {
+    const cachedEurInr = JSON.parse(localStorage.getItem('eur_inr_history') || 'null');
+    if (cachedEurInr?.dates?.length >= 20) {
+      _eurInrHistory = cachedEurInr;
+      requestAnimationFrame(() => { drawEurInrSparkline(); updateEurInrTile(); });
+    }
+  } catch(_) {}
 
   const origin = window.location.href.replace(/[^/]*$/, '');
   const saved = loadFromStorage();
