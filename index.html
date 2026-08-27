@@ -2196,14 +2196,13 @@ function _openTrendModal() {
   const { points, open, dayOpen, dayHigh, dayLow } = _trendData;
   if (!points.length) { status('No intraday data for today.'); return; }
 
-  // Default to last 30 minutes view
+  // Default to full session view (All)
   const { sessionOpen, sessionClose } = _trendSessionBounds();
-  const lastPt = points[points.length - 1].t;
-  _trendViewEnd   = lastPt;
-  _trendViewStart = Math.max(sessionOpen, lastPt - 30 * 60000);
+  _trendViewStart = sessionOpen;
+  _trendViewEnd   = sessionClose;
 
   document.getElementById('trend-modal').style.display = 'flex';
-  setTimeout(() => { _setActiveZoomBtn('zoom-btn-30'); }, 0);
+  setTimeout(() => { _setActiveZoomBtn('zoom-btn-all'); }, 0);
 
   // Populate stats bar
   document.getElementById('trend-stat-open').textContent = dayOpen ? fmtEur(dayOpen) : '—';
@@ -2419,11 +2418,12 @@ function resetTrendZoom() {
 
 function zoomTrendChart(factor) {
   if (!_trendViewStart) return;
-  const mid   = (_trendViewStart + _trendViewEnd) / 2;
-  const half  = (_trendViewEnd - _trendViewStart) / 2 * factor;
   const { sessionOpen, sessionClose } = _trendSessionBounds();
-  _trendViewStart = Math.max(sessionOpen,  Math.round(mid - half));
-  _trendViewEnd   = Math.min(sessionClose, Math.round(mid + half));
+  // Anchor zoom to right edge (latest data/current time)
+  const anchor  = _trendViewEnd;
+  const newLen  = (_trendViewEnd - _trendViewStart) * factor;
+  _trendViewStart = Math.max(sessionOpen, Math.round(anchor - newLen));
+  _trendViewEnd   = Math.min(sessionClose, anchor);
   _redrawTrendModal();
 }
 
