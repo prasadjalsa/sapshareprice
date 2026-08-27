@@ -86,36 +86,43 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def _proxy_chart(self):
-        try:
-            url = "https://query1.finance.yahoo.com/v8/finance/chart/SAP.DE?range=1d&interval=5m&includePrePost=false"
-            req = urllib.request.Request(url, headers=FETCH_HEADERS)
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.load(resp)
-            result = data["chart"]["result"][0]
-            timestamps = result.get("timestamp", [])
-            quote      = result["indicators"]["quote"][0]
-            closes     = quote.get("close",  [])
-            highs      = quote.get("high",   [])
-            lows       = quote.get("low",    [])
-            opens      = quote.get("open",   [])
-            prev_close = result["meta"].get("chartPreviousClose")
-            points = [{"t": t * 1000, "p": c}
-                      for t, c in zip(timestamps, closes)
-                      if c is not None]
-            valid_highs = [h for h in highs if h is not None]
-            valid_lows  = [l for l in lows  if l is not None]
-            day_open    = next((o for o in opens if o is not None), None)
-            day_high    = max(valid_highs) if valid_highs else None
-            day_low     = min(valid_lows)  if valid_lows  else None
-            self._json(200, {
-                "points":  points,
-                "open":    prev_close,
-                "dayOpen": day_open,
-                "dayHigh": day_high,
-                "dayLow":  day_low,
-            })
-        except Exception as e:
-            self._json(500, {"error": str(e)})
+        # Try 1m interval first, fall back to 5m
+        for interval in ["1m", "5m"]:
+            try:
+                url = f"https://query1.finance.yahoo.com/v8/finance/chart/SAP.DE?range=1d&interval={interval}&includePrePost=false"
+                req = urllib.request.Request(url, headers=FETCH_HEADERS)
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.load(resp)
+                result     = data["chart"]["result"][0]
+                timestamps = result.get("timestamp", [])
+                quote      = result["indicators"]["quote"][0]
+                closes     = quote.get("close", [])
+                highs      = quote.get("high",  [])
+                lows       = quote.get("low",   [])
+                opens      = quote.get("open",  [])
+                meta       = result.get("meta", {})
+                prev_close = meta.get("chartPreviousClose")
+                points = [{"t": t * 1000, "p": c}
+                          for t, c in zip(timestamps, closes)
+                          if c is not None]
+                valid_highs   = [h for h in highs if h is not None]
+                valid_lows    = [l for l in lows  if l is not None]
+                day_open      = next((o for o in opens if o is not None), None)
+                day_high      = max(valid_highs) if valid_highs else None
+                day_low       = min(valid_lows)  if valid_lows  else None
+                current_price = meta.get("regularMarketPrice") or (points[-1]["p"] if points else None)
+                market_state  = meta.get("marketState")
+                self._json(200, {
+                    "points": points, "open": prev_close,
+                    "dayOpen": day_open, "dayHigh": day_high, "dayLow": day_low,
+                    "price": current_price, "source": f"Yahoo ({interval})",
+                    "marketState": market_state, "interval": interval,
+                    "cached": False, "age_seconds": 0,
+                })
+                return
+            except Exception as e:
+                if interval == "5m":
+                    self._json(500, {"error": str(e)})
 
     def _proxy_sap(self):
         now = time.time()
