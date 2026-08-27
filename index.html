@@ -2109,9 +2109,10 @@ const TREND_KEY = () => {
 
 function updateTrendTile() {
   if (!_trendData) return;
-  const { points, open } = _trendData;
-  const last  = points[points.length - 1]?.p;
-  const first = points[0]?.p; // market open price (first candle of the day)
+  const { points, open, price } = _trendData;
+  // Use regularMarketPrice (same as input field) so tile matches input
+  const last  = price || points[points.length - 1]?.p;
+  const first = points[0]?.p;
   const el    = document.getElementById('trend-tile-value');
   const sub   = document.getElementById('trend-tile-sub');
   if (!last) return;
