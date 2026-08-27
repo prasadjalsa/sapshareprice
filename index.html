@@ -1391,6 +1391,7 @@ function renderAll() {
 let _cooldownTimer = null;
 let _autoRefreshTimer = null;
 let _autoRefreshScheduledAt = 0;
+let _isFirstLoad = true; // skip cooldown countdown on first page load
 let _autoLabelTimer = null; // keeps "auto in X min" updating after cooldown expires
 const AUTO_REFRESH_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -1558,8 +1559,9 @@ async function fetchLivePrices() {
     status('Could not fetch prices. Enter manually and click Recalculate.');
   }
 
-  // Start cooldown — button re-enables once cache TTL expires
-  startCooldown(ageSeconds);
+  // Only start cooldown if we actually got a price — and not on first load
+  if (sapPrice && !_isFirstLoad) startCooldown(ageSeconds);
+  _isFirstLoad = false;
   fetchEurInrHistory(); // load EUR→INR 30-day history (once per day)
   // Sync live rate into history last point
   if (eurInr && _eurInrHistory?.rates?.length) {
