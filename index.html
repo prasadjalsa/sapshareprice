@@ -1514,7 +1514,7 @@ async function fetchLivePrices() {
 
   // Call 2: EUR→INR live rate (always fresh)
   try {
-    const res  = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR');
+    const res  = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR', { cache: 'no-store' });
     const json = await res.json();
     eurInr = json?.rates?.INR;
   } catch (e) { errors.push('EUR→INR fetch failed'); }
