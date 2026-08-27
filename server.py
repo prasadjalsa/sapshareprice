@@ -86,7 +86,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def _proxy_chart(self):
-        # Try 1m interval first, fall back to 5m
+        # Try 1m interval first, fall back to 5m only on non-rate-limit errors
         for interval in ["1m", "5m"]:
             try:
                 url = f"https://query1.finance.yahoo.com/v8/finance/chart/SAP.DE?range=1d&interval={interval}&includePrePost=false"
@@ -120,6 +120,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     "cached": False, "age_seconds": 0,
                 })
                 return
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    # Rate limited — don't retry with 5m, just fail
+                    self._json(429, {"error": "Rate limited (429) — try again later"})
+                    return
+                if interval == "5m":
+                    self._json(500, {"error": str(e)})
             except Exception as e:
                 if interval == "5m":
                     self._json(500, {"error": str(e)})

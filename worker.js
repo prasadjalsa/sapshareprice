@@ -106,7 +106,7 @@ async function handleSapChart(request) {
     });
   }
 
-  // Try 1m interval first, fall back to 5m if Yahoo rejects it
+  // Try 1m interval first, fall back to 5m only on non-rate-limit errors
   const intervals = ['1m', '5m'];
   for (const interval of intervals) {
     try {
@@ -119,6 +119,15 @@ async function handleSapChart(request) {
           "Origin": "https://finance.yahoo.com",
         },
       });
+      if (res.status === 429) {
+        // Rate limited — don't retry, return stale cache or error
+        if (interval === '1m') {
+          return new Response(JSON.stringify({ error: 'Rate limited (429) — try again later' }), {
+            status: 429, headers: CORS,
+          });
+        }
+        throw new Error('HTTP 429');
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data   = await res.json();
       const result = data?.chart?.result?.[0];
