@@ -469,6 +469,13 @@
       <div><span style="color:var(--muted)">High</span> <strong id="trend-stat-high" style="color:var(--green)">—</strong></div>
       <div><span style="color:var(--muted)">Low</span>  <strong id="trend-stat-low" style="color:var(--red)">—</strong></div>
       <div><span style="color:var(--muted)">Prev Close</span> <strong id="trend-stat-prev">—</strong></div>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <span style="color:var(--muted);font-size:11px">Zoom:</span>
+        <button onclick="zoomToWindow(30)"  id="zoom-btn-30"  style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;font-weight:600">30m</button>
+        <button onclick="zoomToWindow(60)"  id="zoom-btn-60"  style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px">1h</button>
+        <button onclick="zoomToWindow(120)" id="zoom-btn-120" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px">2h</button>
+        <button onclick="resetTrendZoom()"  id="zoom-btn-all" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px">All</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2189,12 +2196,14 @@ function _openTrendModal() {
   const { points, open, dayOpen, dayHigh, dayLow } = _trendData;
   if (!points.length) { status('No intraday data for today.'); return; }
 
-  // Initialise view to full session
+  // Default to last 30 minutes view
   const { sessionOpen, sessionClose } = _trendSessionBounds();
-  _trendViewStart = sessionOpen;
-  _trendViewEnd   = sessionClose;
+  const lastPt = points[points.length - 1].t;
+  _trendViewEnd   = lastPt;
+  _trendViewStart = Math.max(sessionOpen, lastPt - 30 * 60000);
 
   document.getElementById('trend-modal').style.display = 'flex';
+  setTimeout(() => { _setActiveZoomBtn('zoom-btn-30'); }, 0);
 
   // Populate stats bar
   document.getElementById('trend-stat-open').textContent = dayOpen ? fmtEur(dayOpen) : '—';
@@ -2375,10 +2384,36 @@ function _trendSessionBounds() {
   };
 }
 
+function _setActiveZoomBtn(id) {
+  ['zoom-btn-30','zoom-btn-60','zoom-btn-120','zoom-btn-all'].forEach(b => {
+    const el = document.getElementById(b);
+    if (!el) return;
+    const active = b === id;
+    el.style.background    = active ? 'var(--accent)' : 'var(--surface2)';
+    el.style.color         = active ? '#fff' : 'var(--text)';
+    el.style.border        = active ? 'none' : '1px solid var(--border)';
+    el.style.fontWeight    = active ? '600' : '400';
+  });
+}
+
+function zoomToWindow(minutes) {
+  if (!_trendData?.points?.length) return;
+  // Anchor to last data point or current time, show last N minutes
+  const last      = _trendData.points[_trendData.points.length - 1].t;
+  const { sessionOpen } = _trendSessionBounds();
+  _trendViewEnd   = last;
+  _trendViewStart = Math.max(sessionOpen, last - minutes * 60000);
+  _clampView();
+  const btnMap = { 30: 'zoom-btn-30', 60: 'zoom-btn-60', 120: 'zoom-btn-120' };
+  _setActiveZoomBtn(btnMap[minutes] || 'zoom-btn-all');
+  _redrawTrendModal();
+}
+
 function resetTrendZoom() {
   const { sessionOpen, sessionClose } = _trendSessionBounds();
   _trendViewStart = sessionOpen;
   _trendViewEnd   = sessionClose;
+  _setActiveZoomBtn('zoom-btn-all');
   _redrawTrendModal();
 }
 
