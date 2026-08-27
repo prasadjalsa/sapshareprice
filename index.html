@@ -2370,6 +2370,7 @@ let _trendViewStart = null; // visible window start timestamp (ms)
 let _trendViewEnd   = null; // visible window end timestamp (ms)
 let _trendDragStart = null; // { x, viewStart, viewEnd } for panning
 let _trendPinchDist = null; // last pinch distance for mobile zoom
+let _trendLastTap   = 0;    // timestamp of last tap for double-tap detection
 
 function _trendSessionBounds() {
   if (!_trendData?.points?.length) return { sessionOpen: 0, sessionClose: 0 };
@@ -2444,6 +2445,7 @@ function _attachTrendCanvasEvents() {
   canvas.addEventListener('mousemove',   _onTrendMouseMove);
   canvas.addEventListener('mouseup',     _onTrendMouseUp);
   canvas.addEventListener('mouseleave',  _onTrendMouseUp);
+  canvas.addEventListener('dblclick',    _onTrendDblClick);
   canvas.addEventListener('touchstart',  _onTrendTouchStart, { passive: false });
   canvas.addEventListener('touchmove',   _onTrendTouchMove,  { passive: false });
   canvas.addEventListener('touchend',    _onTrendTouchEnd);
@@ -2451,6 +2453,17 @@ function _attachTrendCanvasEvents() {
 
 function _detachTrendCanvasEvents() {
   const canvas = document.getElementById('trend-canvas');
+  if (!canvas) return;
+  canvas.removeEventListener('wheel',      _onTrendWheel);
+  canvas.removeEventListener('mousedown',  _onTrendMouseDown);
+  canvas.removeEventListener('mousemove',  _onTrendMouseMove);
+  canvas.removeEventListener('mouseup',    _onTrendMouseUp);
+  canvas.removeEventListener('mouseleave', _onTrendMouseUp);
+  canvas.removeEventListener('dblclick',   _onTrendDblClick);
+  canvas.removeEventListener('touchstart', _onTrendTouchStart);
+  canvas.removeEventListener('touchmove',  _onTrendTouchMove);
+  canvas.removeEventListener('touchend',   _onTrendTouchEnd);
+}
   if (!canvas) return;
   canvas.removeEventListener('wheel',      _onTrendWheel);
   canvas.removeEventListener('mousedown',  _onTrendMouseDown);
@@ -2546,9 +2559,39 @@ function _onTrendTouchMove(e) {
   }
 }
 
-function _onTrendTouchEnd() {
+function _onTrendTouchEnd(e) {
   _trendDragStart = null;
   _trendPinchDist = null;
+  // Double-tap detection (within 300ms)
+  const now = Date.now();
+  if (now - _trendLastTap < 300 && e.changedTouches.length === 1) {
+    const touch  = e.changedTouches[0];
+    const canvas = document.getElementById('trend-canvas');
+    const rect   = canvas.getBoundingClientRect();
+    _zoomAtPoint((touch.clientX - rect.left) / canvas.offsetWidth, 0.4);
+  }
+  _trendLastTap = now;
+}
+
+function _onTrendDblClick(e) {
+  const canvas  = e.currentTarget;
+  const PAD_L   = 70;
+  const cW      = canvas.offsetWidth - PAD_L - 20;
+  const xRatio  = Math.max(0, Math.min(1, (e.offsetX - PAD_L) / cW));
+  _zoomAtPoint(xRatio, 0.4);
+}
+
+function _zoomAtPoint(xRatio, factor) {
+  // Zoom in 2.5x (factor=0.4 → new len is 40% of current) anchored to tap/click position
+  const { sessionOpen, sessionClose } = _trendSessionBounds();
+  const viewLen = _trendViewEnd - _trendViewStart;
+  const pivot   = _trendViewStart + xRatio * viewLen;
+  const newLen  = viewLen * factor;
+  _trendViewStart = Math.max(sessionOpen,  Math.round(pivot - xRatio * newLen));
+  _trendViewEnd   = Math.min(sessionClose, Math.round(pivot + (1 - xRatio) * newLen));
+  _clampView();
+  _setActiveZoomBtn(null); // clear preset highlight — custom zoom
+  _redrawTrendModal();
 }
 
 // ─── EUR→INR 30-day Chart ────────────────────────────────────────────────────
