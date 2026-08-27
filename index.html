@@ -456,11 +456,8 @@
         <h2 style="font-size:16px;font-weight:700">SAP SE (SAP.DE) — Today's Price Trend</h2>
         <div style="font-size:12px;color:var(--muted)" id="trend-modal-sub"></div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer">
-          <input type="checkbox" id="trend-show-dots" checked onchange="_redrawTrendModal()" style="cursor:pointer">
-          Dots
-        </label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span onclick="toggleTrendDots()" id="trend-dots-toggle" title="Toggle candle dots" style="cursor:pointer;background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;user-select:none">● Dots On</span>
         <button onclick="zoomTrendChart(0.6)" title="Zoom in" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:16px;color:var(--text)">🔍+</button>
         <button onclick="zoomTrendChart(1.6)" title="Zoom out" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:16px;color:var(--text)">🔍−</button>
         <button onclick="resetTrendZoom()" title="Reset zoom" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;color:var(--muted)">Reset</button>
@@ -2325,7 +2322,7 @@ function _redrawTrendModal() {
     ctx.lineWidth = 2; ctx.stroke();
   }
   // Dot per candle — only if checkbox is checked
-  const showDots = document.getElementById('trend-show-dots')?.checked !== false;
+  const showDots = _trendShowDots;
   if (showDots) {
     points.forEach(pt => {
       ctx.beginPath(); ctx.arc(toX(pt.t), toY(pt.p), 2.5, 0, Math.PI * 2);
@@ -2379,6 +2376,7 @@ let _trendViewEnd   = null; // visible window end timestamp (ms)
 let _trendDragStart = null; // { x, viewStart, viewEnd } for panning
 let _trendPinchDist = null; // last pinch distance for mobile zoom
 let _trendLastTap   = 0;    // timestamp of last tap for double-tap detection
+let _trendShowDots  = true; // toggle candle dots on/off
 
 function _trendSessionBounds() {
   if (!_trendData?.points?.length) return { sessionOpen: 0, sessionClose: 0 };
@@ -2414,6 +2412,18 @@ function zoomToWindow(minutes) {
   _clampView();
   const btnMap = { 30: 'zoom-btn-30', 60: 'zoom-btn-60', 120: 'zoom-btn-120' };
   _setActiveZoomBtn(btnMap[minutes] || 'zoom-btn-all');
+  _redrawTrendModal();
+}
+
+function toggleTrendDots() {
+  _trendShowDots = !_trendShowDots;
+  const btn = document.getElementById('trend-dots-toggle');
+  if (btn) {
+    btn.textContent       = _trendShowDots ? '● Dots On' : '○ Dots Off';
+    btn.style.background  = _trendShowDots ? 'var(--accent)' : 'var(--surface2)';
+    btn.style.color       = _trendShowDots ? '#fff' : 'var(--muted)';
+    btn.style.border      = _trendShowDots ? 'none' : '1px solid var(--border)';
+  }
   _redrawTrendModal();
 }
 
