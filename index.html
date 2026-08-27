@@ -1486,67 +1486,60 @@ async function fetchLivePrices() {
 
   let sapPrice = null, eurInr = null, errors = [], ageSeconds = 0;
 
-  // Single call: /api/sap-chart returns price + chart + marketState (5-min cached)
-  const CHART_WORKER_URL = 'https://sapshareprice.prasad-jalsa.workers.dev/api/sap-chart';
-  const CHART_LOCAL_URL  = '/api/sap-chart';
+  // Call 1: SAP price via Worker (5-min cached)
+  const SAP_WORKER_URL = 'https://sapshareprice.prasad-jalsa.workers.dev/api/sap-price';
+  const SAP_LOCAL_URL  = '/api/sap-price';
 
   try {
     let json = null;
     try {
-      const res = await fetch(CHART_WORKER_URL);
+      const res = await fetch(SAP_WORKER_URL);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       json = await res.json();
     } catch (_) {
-      const res = await fetch(CHART_LOCAL_URL);
+      const res = await fetch(SAP_LOCAL_URL);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       json = await res.json();
     }
     if (json.price) {
       sapPrice   = json.price;
       ageSeconds = json.age_seconds || 0;
-      if (json.stale) errors.push(`SAP price is stale — ${Math.round(ageSeconds/60)}min old`);
+      const src  = json.source ? ` (${json.source})` : '';
+      if (json.stale) errors.push(`SAP price is stale${src} — ${Math.round(ageSeconds/60)}min old`);
       updateMarketStateBadge(json.marketState);
-      // Merge chart data into trend history
-      if (json.points?.length) {
-        const key    = TREND_KEY();
-        const stored = JSON.parse(localStorage.getItem(key) || 'null');
-        const storedPoints = stored?.points || [];
-        const mergedMap = new Map();
-        [...storedPoints, ...json.points].forEach(pt => mergedMap.set(pt.t, pt));
-        const sortedPoints = [...mergedMap.values()].sort((a, b) => a.t - b.t);
-        _trendData = {
-          ...json, points: sortedPoints,
-          dayHigh: (json.dayHigh && stored?.dayHigh) ? Math.max(json.dayHigh, stored.dayHigh) : (json.dayHigh || stored?.dayHigh || null),
-          dayLow:  (json.dayLow  && stored?.dayLow)  ? Math.min(json.dayLow,  stored.dayLow)  : (json.dayLow  || stored?.dayLow  || null),
-        };
-        localStorage.setItem(key, JSON.stringify(_trendData));
-        requestAnimationFrame(() => { drawTrendSparkline(); updateTrendTile(); });
-      }
     } else {
       errors.push('SAP price unavailable: ' + (json.error || 'unknown'));
     }
   } catch (e) { errors.push('SAP price fetch failed — deploy worker.js or run server.py'); }
 
+  // Call 2: EUR→INR live rate (always fresh)
   try {
-    // EUR→INR: fetch once per day — ECB only updates at ~16:00 CET
-    const todayStr  = new Date().toISOString().slice(0, 10);
-    const cachedRate = JSON.parse(localStorage.getItem('eur_inr_rate') || 'null');
-    // Check if CET time is past 16:00 (ECB publishes new rate at ~16:00 CET)
-    const cetHour = new Date(new Date().getTime() + getGermanyCETOffset(new Date()) * 3600000).getUTCHours();
-    const ecbPublished = cetHour >= 16;
-    const cacheValid   = cachedRate && cachedRate.date === todayStr
-                         && (cachedRate.post_ecb || !ecbPublished);
-    if (cacheValid) {
-      eurInr = cachedRate.rate;
-    } else {
-      const res  = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR');
-      const json = await res.json();
-      eurInr = json?.rates?.INR;
-      if (eurInr) localStorage.setItem('eur_inr_rate', JSON.stringify({
-        date: todayStr, rate: eurInr, post_ecb: ecbPublished
-      }));
-    }
+    const res  = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR');
+    const json = await res.json();
+    eurInr = json?.rates?.INR;
   } catch (e) { errors.push('EUR→INR fetch failed'); }
+
+  // Also fetch SAP chart for trend tile (separate from price)
+  try {
+    const CHART_URL = 'https://sapshareprice.prasad-jalsa.workers.dev/api/sap-chart';
+    const res  = await fetch(CHART_URL);
+    const json = await res.json();
+    if (json.points?.length) {
+      const key          = TREND_KEY();
+      const stored       = JSON.parse(localStorage.getItem(key) || 'null');
+      const storedPoints = stored?.points || [];
+      const mergedMap    = new Map();
+      [...storedPoints, ...json.points].forEach(pt => mergedMap.set(pt.t, pt));
+      const sortedPoints = [...mergedMap.values()].sort((a, b) => a.t - b.t);
+      _trendData = {
+        ...json, points: sortedPoints,
+        dayHigh: (json.dayHigh && stored?.dayHigh) ? Math.max(json.dayHigh, stored.dayHigh) : (json.dayHigh || stored?.dayHigh || null),
+        dayLow:  (json.dayLow  && stored?.dayLow)  ? Math.min(json.dayLow,  stored.dayLow)  : (json.dayLow  || stored?.dayLow  || null),
+      };
+      localStorage.setItem(key, JSON.stringify(_trendData));
+      requestAnimationFrame(() => { drawTrendSparkline(); updateTrendTile(); });
+    }
+  } catch (_) {}
 
   if (sapPrice) document.getElementById('currentPriceEur').value = sapPrice.toFixed(4);
   if (eurInr)   document.getElementById('currentRate').value = eurInr.toFixed(4);
