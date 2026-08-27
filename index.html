@@ -1560,7 +1560,13 @@ async function fetchLivePrices() {
   }
 
   // Only start cooldown if we actually got a price — and not on first load
-  if (sapPrice && !_isFirstLoad) startCooldown(ageSeconds);
+  if (sapPrice && !_isFirstLoad) {
+    startCooldown(ageSeconds);
+  } else {
+    // Always re-enable button so it's never stuck on "Fetching…"
+    btn.textContent = '⟳ Refresh Prices';
+    btn.disabled = false;
+  }
   _isFirstLoad = false;
   fetchEurInrHistory(); // load EUR→INR 30-day history (once per day)
   // Sync live rate into history last point
