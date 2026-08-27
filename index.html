@@ -1531,13 +1531,20 @@ async function fetchLivePrices() {
     // EUR→INR: fetch once per day — ECB only updates at ~16:00 CET
     const todayStr  = new Date().toISOString().slice(0, 10);
     const cachedRate = JSON.parse(localStorage.getItem('eur_inr_rate') || 'null');
-    if (cachedRate && cachedRate.date === todayStr) {
-      eurInr = cachedRate.rate; // use cached — no network call needed
+    // Check if CET time is past 16:00 (ECB publishes new rate at ~16:00 CET)
+    const cetHour = new Date(new Date().getTime() + getGermanyCETOffset(new Date()) * 3600000).getUTCHours();
+    const ecbPublished = cetHour >= 16;
+    const cacheValid   = cachedRate && cachedRate.date === todayStr
+                         && (cachedRate.post_ecb || !ecbPublished);
+    if (cacheValid) {
+      eurInr = cachedRate.rate;
     } else {
       const res  = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR');
       const json = await res.json();
       eurInr = json?.rates?.INR;
-      if (eurInr) localStorage.setItem('eur_inr_rate', JSON.stringify({ date: todayStr, rate: eurInr }));
+      if (eurInr) localStorage.setItem('eur_inr_rate', JSON.stringify({
+        date: todayStr, rate: eurInr, post_ecb: ecbPublished
+      }));
     }
   } catch (e) { errors.push('EUR→INR fetch failed'); }
 
