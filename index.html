@@ -456,9 +456,14 @@
         <h2 style="font-size:16px;font-weight:700">SAP SE (SAP.DE) — Today's Price Trend</h2>
         <div style="font-size:12px;color:var(--muted)" id="trend-modal-sub"></div>
       </div>
-      <button onclick="closeTrendChart()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="zoomTrendChart(0.6)" title="Zoom in" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:16px;color:var(--text)">🔍+</button>
+        <button onclick="zoomTrendChart(1.6)" title="Zoom out" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:16px;color:var(--text)">🔍−</button>
+        <button onclick="resetTrendZoom()" title="Reset zoom" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;color:var(--muted)">Reset</button>
+        <button onclick="closeTrendChart()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
+      </div>
     </div>
-    <canvas id="trend-canvas" style="width:100%;height:360px"></canvas>
+    <canvas id="trend-canvas" style="width:100%;height:360px;touch-action:none"></canvas>
     <div id="trend-modal-stats" style="display:flex;gap:32px;margin-top:16px;padding:12px 4px;border-top:1px solid var(--border);font-size:13px">
       <div><span style="color:var(--muted)">Open</span> <strong id="trend-stat-open">—</strong></div>
       <div><span style="color:var(--muted)">High</span> <strong id="trend-stat-high" style="color:var(--green)">—</strong></div>
@@ -2184,6 +2189,11 @@ function _openTrendModal() {
   const { points, open, dayOpen, dayHigh, dayLow } = _trendData;
   if (!points.length) { status('No intraday data for today.'); return; }
 
+  // Initialise view to full session
+  const { sessionOpen, sessionClose } = _trendSessionBounds();
+  _trendViewStart = sessionOpen;
+  _trendViewEnd   = sessionClose;
+
   document.getElementById('trend-modal').style.display = 'flex';
 
   // Populate stats bar
@@ -2199,8 +2209,14 @@ function _openTrendModal() {
   document.getElementById('trend-modal-sub').textContent =
     `Last: €${fmt(last)} · ${change >= 0 ? '+' : ''}${fmt(change, 2)} (${pct >= 0 ? '+' : ''}${fmt(pct, 2)}%) · ${points.length} data points`;
 
-  // Draw full chart — time-based X axis spanning 09:00–17:30 CET/CEST
-  const canvas = document.getElementById('trend-canvas');
+  _redrawTrendModal();
+  _attachTrendCanvasEvents();
+}
+
+function _redrawTrendModal() {
+  if (!_trendData || !_trendViewStart) return;
+  const { points, open } = _trendData;
+    const canvas = document.getElementById('trend-canvas');
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.offsetWidth || 800, H = 360;
   canvas.width = W * dpr; canvas.height = H * dpr;
@@ -2216,22 +2232,29 @@ function _openTrendModal() {
   const cetOffsetMs = getGermanyCETOffset(new Date(points[0].t)) * 3600000;
   const firstPointMs = points[0].t;
   // Find UTC midnight of the CET day this point belongs to
-  const cetDayMs     = firstPointMs + cetOffsetMs; // shift to CET
-  const cetMidnightMs = cetDayMs - (cetDayMs % 86400000); // floor to midnight CET
-  const utcMidnight   = cetMidnightMs - cetOffsetMs; // back to UTC
-  const sessionOpen   = utcMidnight + 9    * 3600000; // 09:00 CET = UTC midnight + 9h - offset, but offset already removed
-  const sessionClose  = utcMidnight + 17.5 * 3600000; // 17:30 CET
-  const sessionLen    = sessionClose - sessionOpen;
+  const cetDayMs      = firstPointMs + cetOffsetMs;
+  const cetMidnightMs = cetDayMs - (cetDayMs % 86400000);
+  const utcMidnight   = cetMidnightMs - cetOffsetMs;
+  const sessionOpen   = utcMidnight + 9    * 3600000;
+  const sessionClose  = utcMidnight + 17.5 * 3600000;
+
+  // Use zoom view bounds for X axis (falls back to full session if not set)
+  const viewStart = _trendViewStart || sessionOpen;
+  const viewEnd   = _trendViewEnd   || sessionClose;
+  const viewLen   = viewEnd - viewStart;
 
   const prices     = points.map(p => p.p);
   const base       = open || prices[0];
   const marketOpen = prices[0];
-  const minV   = Math.min(base, marketOpen, ...prices);
+  // Only include prices within visible window for Y range
+  const visiblePrices = points.filter(p => p.t >= viewStart && p.t <= viewEnd).map(p => p.p);
+  const pricesToScale = visiblePrices.length ? visiblePrices : prices;
+  const minV   = Math.min(base, marketOpen, ...pricesToScale);
   const maxV   = Math.max(base, marketOpen, ...prices);
   const range  = maxV - minV || 0.1;
 
-  // Time-based toX — maps timestamp to pixel position within 09:00–17:30
-  const toX = t  => PAD.left + Math.max(0, Math.min(1, (t - sessionOpen) / sessionLen)) * cW;
+  // Time-based toX — maps timestamp within zoom view
+  const toX = t  => PAD.left + Math.max(0, Math.min(1, (t - viewStart) / viewLen)) * cW;
   const toY = v  => PAD.top + cH - ((v - minV) / range) * cH;
 
   // Y grid + labels
@@ -2243,19 +2266,22 @@ function _openTrendModal() {
     ctx.fillText('€' + fmt(v, 2), PAD.left - 6, y + 4);
   }
 
-  // X grid lines + labels every 60 min
+  // X grid lines + labels — only show ticks within visible window
   ctx.fillStyle = '#6b7280'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
-  for (let h = 9; h <= 17; h++) {
-    const tickMs = sessionOpen + (h - 9) * 3600000;
-    const x = toX(tickMs);
+  // Choose tick interval based on zoom level
+  const viewHours = viewLen / 3600000;
+  const tickIntervalMin = viewHours <= 1 ? 10 : viewHours <= 3 ? 30 : 60;
+  const tickMs = tickIntervalMin * 60000;
+  const firstTick = Math.ceil(viewStart / tickMs) * tickMs;
+  for (let t = firstTick; t <= viewEnd; t += tickMs) {
+    const x = toX(t);
+    const cetT = new Date(t + getGermanyCETOffset(new Date(t)) * 3600000);
+    const hh = String(cetT.getUTCHours()).padStart(2,'0');
+    const mm = String(cetT.getUTCMinutes()).padStart(2,'0');
     ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + cH); ctx.stroke();
-    ctx.fillText(`${String(h).padStart(2,'0')}:00`, x, PAD.top + cH + 14);
+    ctx.fillText(`${hh}:${mm}`, x, PAD.top + cH + 14);
   }
-  // 17:30 label
-  const x1730 = toX(sessionClose);
-  ctx.beginPath(); ctx.moveTo(x1730, PAD.top); ctx.lineTo(x1730, PAD.top + cH); ctx.stroke();
-  ctx.fillText('17:30', x1730, PAD.top + cH + 14);
 
   // Prev close baseline (grey dashed)
   const baseY = toY(base);
@@ -2322,10 +2348,172 @@ function _openTrendModal() {
   ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2);
   ctx.fillStyle = prices[prices.length - 1] >= base ? '#16a34a' : '#dc2626';
   ctx.fill();
+
 }
+
 
 function closeTrendChart() {
   document.getElementById('trend-modal').style.display = 'none';
+  _detachTrendCanvasEvents();
+}
+
+// ─── Trend chart zoom/pan state ───────────────────────────────────────────────
+let _trendViewStart = null; // visible window start timestamp (ms)
+let _trendViewEnd   = null; // visible window end timestamp (ms)
+let _trendDragStart = null; // { x, viewStart, viewEnd } for panning
+let _trendPinchDist = null; // last pinch distance for mobile zoom
+
+function _trendSessionBounds() {
+  if (!_trendData?.points?.length) return { sessionOpen: 0, sessionClose: 0 };
+  const cetOffsetMs   = getGermanyCETOffset(new Date(_trendData.points[0].t)) * 3600000;
+  const cetDayMs      = _trendData.points[0].t + cetOffsetMs;
+  const cetMidnightMs = cetDayMs - (cetDayMs % 86400000);
+  const utcMidnight   = cetMidnightMs - cetOffsetMs;
+  return {
+    sessionOpen:  utcMidnight + 9    * 3600000,
+    sessionClose: utcMidnight + 17.5 * 3600000,
+  };
+}
+
+function resetTrendZoom() {
+  const { sessionOpen, sessionClose } = _trendSessionBounds();
+  _trendViewStart = sessionOpen;
+  _trendViewEnd   = sessionClose;
+  _redrawTrendModal();
+}
+
+function zoomTrendChart(factor) {
+  if (!_trendViewStart) return;
+  const mid   = (_trendViewStart + _trendViewEnd) / 2;
+  const half  = (_trendViewEnd - _trendViewStart) / 2 * factor;
+  const { sessionOpen, sessionClose } = _trendSessionBounds();
+  _trendViewStart = Math.max(sessionOpen,  Math.round(mid - half));
+  _trendViewEnd   = Math.min(sessionClose, Math.round(mid + half));
+  _redrawTrendModal();
+}
+
+function _clampView() {
+  const { sessionOpen, sessionClose } = _trendSessionBounds();
+  const len = _trendViewEnd - _trendViewStart;
+  if (_trendViewStart < sessionOpen)  { _trendViewStart = sessionOpen;  _trendViewEnd = sessionOpen  + len; }
+  if (_trendViewEnd   > sessionClose) { _trendViewEnd   = sessionClose; _trendViewStart = sessionClose - len; }
+  _trendViewStart = Math.max(_trendViewStart, sessionOpen);
+  _trendViewEnd   = Math.min(_trendViewEnd,   sessionClose);
+}
+
+function _attachTrendCanvasEvents() {
+  const canvas = document.getElementById('trend-canvas');
+  if (!canvas) return;
+  canvas.addEventListener('wheel',       _onTrendWheel,      { passive: false });
+  canvas.addEventListener('mousedown',   _onTrendMouseDown);
+  canvas.addEventListener('mousemove',   _onTrendMouseMove);
+  canvas.addEventListener('mouseup',     _onTrendMouseUp);
+  canvas.addEventListener('mouseleave',  _onTrendMouseUp);
+  canvas.addEventListener('touchstart',  _onTrendTouchStart, { passive: false });
+  canvas.addEventListener('touchmove',   _onTrendTouchMove,  { passive: false });
+  canvas.addEventListener('touchend',    _onTrendTouchEnd);
+}
+
+function _detachTrendCanvasEvents() {
+  const canvas = document.getElementById('trend-canvas');
+  if (!canvas) return;
+  canvas.removeEventListener('wheel',      _onTrendWheel);
+  canvas.removeEventListener('mousedown',  _onTrendMouseDown);
+  canvas.removeEventListener('mousemove',  _onTrendMouseMove);
+  canvas.removeEventListener('mouseup',    _onTrendMouseUp);
+  canvas.removeEventListener('mouseleave', _onTrendMouseUp);
+  canvas.removeEventListener('touchstart', _onTrendTouchStart);
+  canvas.removeEventListener('touchmove',  _onTrendTouchMove);
+  canvas.removeEventListener('touchend',   _onTrendTouchEnd);
+}
+
+function _onTrendWheel(e) {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 1.25 : 0.8;
+  // Zoom toward cursor position
+  const canvas  = e.currentTarget;
+  const PAD_L   = 70;
+  const cW      = canvas.offsetWidth - PAD_L - 20;
+  const xRatio  = Math.max(0, Math.min(1, (e.offsetX - PAD_L) / cW));
+  const viewLen = _trendViewEnd - _trendViewStart;
+  const pivot   = _trendViewStart + xRatio * viewLen;
+  const newLen  = Math.min(viewLen * factor, _trendSessionBounds().sessionClose - _trendSessionBounds().sessionOpen);
+  _trendViewStart = Math.round(pivot - xRatio * newLen);
+  _trendViewEnd   = Math.round(pivot + (1 - xRatio) * newLen);
+  _clampView();
+  _redrawTrendModal();
+}
+
+function _onTrendMouseDown(e) {
+  _trendDragStart = { x: e.clientX, viewStart: _trendViewStart, viewEnd: _trendViewEnd };
+  e.currentTarget.style.cursor = 'grabbing';
+}
+
+function _onTrendMouseMove(e) {
+  if (!_trendDragStart) return;
+  const canvas  = e.currentTarget;
+  const PAD_L   = 70;
+  const cW      = canvas.offsetWidth - PAD_L - 20;
+  const viewLen = _trendDragStart.viewEnd - _trendDragStart.viewStart;
+  const dx      = e.clientX - _trendDragStart.x;
+  const dtMs    = -(dx / cW) * viewLen;
+  _trendViewStart = Math.round(_trendDragStart.viewStart + dtMs);
+  _trendViewEnd   = Math.round(_trendDragStart.viewEnd   + dtMs);
+  _clampView();
+  _redrawTrendModal();
+}
+
+function _onTrendMouseUp(e) {
+  _trendDragStart = null;
+  e.currentTarget.style.cursor = 'default';
+}
+
+function _onTrendTouchStart(e) {
+  e.preventDefault();
+  if (e.touches.length === 2) {
+    _trendPinchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    _trendDragStart = null;
+  } else if (e.touches.length === 1) {
+    _trendDragStart = { x: e.touches[0].clientX, viewStart: _trendViewStart, viewEnd: _trendViewEnd };
+    _trendPinchDist = null;
+  }
+}
+
+function _onTrendTouchMove(e) {
+  e.preventDefault();
+  if (e.touches.length === 2 && _trendPinchDist !== null) {
+    const dist   = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const factor = _trendPinchDist / dist;
+    _trendPinchDist = dist;
+    const mid = (_trendViewStart + _trendViewEnd) / 2;
+    const half = (_trendViewEnd - _trendViewStart) / 2 * factor;
+    _trendViewStart = Math.round(mid - half);
+    _trendViewEnd   = Math.round(mid + half);
+    _clampView();
+    _redrawTrendModal();
+  } else if (e.touches.length === 1 && _trendDragStart) {
+    const canvas  = document.getElementById('trend-canvas');
+    const PAD_L   = 70;
+    const cW      = canvas.offsetWidth - PAD_L - 20;
+    const viewLen = _trendDragStart.viewEnd - _trendDragStart.viewStart;
+    const dx      = e.touches[0].clientX - _trendDragStart.x;
+    const dtMs    = -(dx / cW) * viewLen;
+    _trendViewStart = Math.round(_trendDragStart.viewStart + dtMs);
+    _trendViewEnd   = Math.round(_trendDragStart.viewEnd   + dtMs);
+    _clampView();
+    _redrawTrendModal();
+  }
+}
+
+function _onTrendTouchEnd() {
+  _trendDragStart = null;
+  _trendPinchDist = null;
 }
 
 // ─── EUR→INR 30-day Chart ────────────────────────────────────────────────────
