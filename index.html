@@ -457,6 +457,10 @@
         <div style="font-size:12px;color:var(--muted)" id="trend-modal-sub"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="trend-show-dots" checked onchange="_redrawTrendModal()" style="cursor:pointer">
+          Dots
+        </label>
         <button onclick="zoomTrendChart(0.6)" title="Zoom in" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:16px;color:var(--text)">🔍+</button>
         <button onclick="zoomTrendChart(1.6)" title="Zoom out" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:16px;color:var(--text)">🔍−</button>
         <button onclick="resetTrendZoom()" title="Reset zoom" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;color:var(--muted)">Reset</button>
@@ -2319,12 +2323,15 @@ function _redrawTrendModal() {
     ctx.strokeStyle = points[i].p >= base ? '#16a34a' : '#dc2626';
     ctx.lineWidth = 2; ctx.stroke();
   }
-  // Dot per candle
-  points.forEach(pt => {
-    ctx.beginPath(); ctx.arc(toX(pt.t), toY(pt.p), 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = pt.p >= base ? '#16a34a' : '#dc2626';
-    ctx.fill();
-  });
+  // Dot per candle — only if checkbox is checked
+  const showDots = document.getElementById('trend-show-dots')?.checked !== false;
+  if (showDots) {
+    points.forEach(pt => {
+      ctx.beginPath(); ctx.arc(toX(pt.t), toY(pt.p), 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = pt.p >= base ? '#16a34a' : '#dc2626';
+      ctx.fill();
+    });
+  }
 
   // Threshold labels on top
   ctx.font = '10px system-ui'; ctx.textAlign = 'left';
