@@ -2464,16 +2464,7 @@ function _detachTrendCanvasEvents() {
   canvas.removeEventListener('touchmove',  _onTrendTouchMove);
   canvas.removeEventListener('touchend',   _onTrendTouchEnd);
 }
-  if (!canvas) return;
-  canvas.removeEventListener('wheel',      _onTrendWheel);
-  canvas.removeEventListener('mousedown',  _onTrendMouseDown);
-  canvas.removeEventListener('mousemove',  _onTrendMouseMove);
-  canvas.removeEventListener('mouseup',    _onTrendMouseUp);
-  canvas.removeEventListener('mouseleave', _onTrendMouseUp);
-  canvas.removeEventListener('touchstart', _onTrendTouchStart);
-  canvas.removeEventListener('touchmove',  _onTrendTouchMove);
-  canvas.removeEventListener('touchend',   _onTrendTouchEnd);
-}
+
 
 function _onTrendWheel(e) {
   e.preventDefault();
