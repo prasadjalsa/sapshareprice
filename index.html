@@ -1486,44 +1486,30 @@ async function fetchLivePrices() {
 
   let sapPrice = null, eurInr = null, errors = [], ageSeconds = 0;
 
-  // Call 1: SAP price via Worker (5-min cached)
-  const SAP_WORKER_URL = 'https://sapshareprice.prasad-jalsa.workers.dev/api/sap-price';
-  const SAP_LOCAL_URL  = '/api/sap-price';
+  // Call 1: /api/sap-chart — returns SAP price + intraday candles + market state (5-min cached)
+  const CHART_WORKER_URL = 'https://sapshareprice.prasad-jalsa.workers.dev/api/sap-chart';
+  const CHART_LOCAL_URL  = '/api/sap-chart';
 
   try {
     let json = null;
     try {
-      const res = await fetch(SAP_WORKER_URL);
+      const res = await fetch(CHART_WORKER_URL);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       json = await res.json();
     } catch (_) {
-      const res = await fetch(SAP_LOCAL_URL);
+      const res = await fetch(CHART_LOCAL_URL);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       json = await res.json();
     }
     if (json.price) {
       sapPrice   = json.price;
       ageSeconds = json.age_seconds || 0;
-      const src  = json.source ? ` (${json.source})` : '';
-      if (json.stale) errors.push(`SAP price is stale${src} — ${Math.round(ageSeconds/60)}min old`);
+      if (json.stale) errors.push(`SAP price is stale — ${Math.round(ageSeconds/60)}min old`);
       updateMarketStateBadge(json.marketState);
     } else {
       errors.push('SAP price unavailable: ' + (json.error || 'unknown'));
     }
-  } catch (e) { errors.push('SAP price fetch failed — deploy worker.js or run server.py'); }
-
-  // Call 2: EUR→INR live rate (always fresh)
-  try {
-    const res  = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR', { cache: 'no-store' });
-    const json = await res.json();
-    eurInr = json?.rates?.INR;
-  } catch (e) { errors.push('EUR→INR fetch failed'); }
-
-  // Also fetch SAP chart for trend tile (separate from price)
-  try {
-    const CHART_URL = 'https://sapshareprice.prasad-jalsa.workers.dev/api/sap-chart';
-    const res  = await fetch(CHART_URL);
-    const json = await res.json();
+    // Merge intraday chart data into trend history
     if (json.points?.length) {
       const key          = TREND_KEY();
       const stored       = JSON.parse(localStorage.getItem(key) || 'null');
@@ -1539,7 +1525,14 @@ async function fetchLivePrices() {
       localStorage.setItem(key, JSON.stringify(_trendData));
       requestAnimationFrame(() => { drawTrendSparkline(); updateTrendTile(); });
     }
-  } catch (_) {}
+  } catch (e) { errors.push('SAP price fetch failed — deploy worker.js or run server.py'); }
+
+  // Call 2: EUR→INR live rate (always fresh, no cache)
+  try {
+    const res  = await fetch('https://api.frankfurter.dev/v1/latest?from=EUR&to=INR', { cache: 'no-store' });
+    const json = await res.json();
+    eurInr = json?.rates?.INR;
+  } catch (e) { errors.push('EUR→INR fetch failed'); }
 
   if (sapPrice) document.getElementById('currentPriceEur').value = sapPrice.toFixed(4);
   if (eurInr)   document.getElementById('currentRate').value = eurInr.toFixed(4);
