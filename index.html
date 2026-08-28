@@ -212,8 +212,8 @@
       <div class="sub" id="eurinr-tile-sub">30-day trend</div>
       <canvas id="eurinr-spark" height="40" style="width:100%;height:40px;display:block;margin-top:auto;padding-top:6px"></canvas>
     </div>
-    <!-- Good to Sell tile — static -->
-    <div class="kpi" onclick="openSellTargetSummary()" style="cursor:pointer" title="Click to view tagged lots">
+    <!-- Good to Sell tile — static, hidden until lots are tagged -->
+    <div class="kpi" id="sell-target-tile" onclick="openSellTargetSummary()" style="cursor:pointer;display:none" title="Click to view tagged lots">
       <div class="label">Good to Sell 🎯</div>
       <div class="value neu" id="sell-target-tile-value">—</div>
       <div class="sub" id="sell-target-tile-sub">Tag lots with a target price</div>
@@ -3246,13 +3246,14 @@ function renderSellTargetTile() {
   const currEur = num(document.getElementById('currentPriceEur').value);
   const el      = document.getElementById('sell-target-tile-value');
   const sub     = document.getElementById('sell-target-tile-sub');
+  const tile    = document.getElementById('sell-target-tile');
 
   const tagged = rows.filter(r => isHeld(r) && r['_gts_price']);
   if (!tagged.length) {
-    if (el)  { el.textContent = '—'; el.className = 'value neu'; }
-    if (sub) sub.textContent = 'Use Good to Sell form to tag lots';
+    if (tile) tile.style.display = 'none';
     return;
   }
+  if (tile) tile.style.display = '';
 
   let totalQty = 0, totalProceeds = 0, totalLotCost = 0, targetPrice = 0, totalFeesInr = 0;
   tagged.forEach(r => {
