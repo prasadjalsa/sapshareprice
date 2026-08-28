@@ -1659,12 +1659,14 @@ function saveHistEdits() {
     const r = rows[parseInt(tr.dataset.rowidx)];
     const sellDate = tr.querySelector('[data-field="SELL DATE"]').value;
     if (sellDate) r['SELL DATE'] = sellDate + 'T00:00:00.000';
-    const sEur = parseFloat(tr.querySelector('[data-field="SELL PRICE (EURO)"]').value);
-    const sInr = parseFloat(tr.querySelector('[data-field="SELL PRICE (INR)"]').value);
-    const qty  = parseFloat(tr.querySelector('[data-field="SELL QUANTITY"]').value);
-    const gain = parseFloat(tr.querySelector('[data-field="CAPITAL GAIN (INR)"]').value);
-    if (!isNaN(sEur)) r['SELL PRICE (EURO)']   = sEur;
-    if (!isNaN(sInr)) r['SELL PRICE (INR)']    = sInr;
+    const sEur  = parseFloat(tr.querySelector('[data-field="SELL PRICE (EURO)"]').value);
+    const sRate = parseFloat(tr.querySelector('[data-field="SELL EXCHANGE RATE (EURO>INR)"]').value);
+    const sInr  = parseFloat(tr.querySelector('[data-field="SELL PRICE (INR)"]').value);
+    const qty   = parseFloat(tr.querySelector('[data-field="SELL QUANTITY"]').value);
+    const gain  = parseFloat(tr.querySelector('[data-field="CAPITAL GAIN (INR)"]').value);
+    if (!isNaN(sEur))  r['SELL PRICE (EURO)']              = sEur;
+    if (!isNaN(sRate)) r['SELL EXCHANGE RATE (EURO>INR)']  = sRate;
+    if (!isNaN(sInr))  r['SELL PRICE (INR)']               = sInr;
     if (!isNaN(qty))  r['SELL QUANTITY']        = qty;
     if (!isNaN(gain)) r['CAPITAL GAIN (INR)']  = gain;
   });
@@ -1683,7 +1685,12 @@ function flipRateToggle(span) {
 }
 
 function deleteRow(idx) {
-  if (!confirm('Delete this row? This cannot be undone.')) return;
+  const r = rows[idx];
+  const isSellRow = r && (r['ORDER_TYPE'] === 'SELL' || r['ORDER_TYPE'] === 'STC*');
+  const msg = isSellRow
+    ? `Delete this sell transaction?\n\n⚠ The ${fmt(num(r['SELL QUANTITY']),6)} shares sold on ${normalizeDate(r['SELL DATE'])} will NOT be automatically restored to your held lots.\n\nYou will need to manually update the balance quantity of the original purchase lot if needed.`
+    : 'Delete this row? This cannot be undone.';
+  if (!confirm(msg)) return;
   rows.splice(idx, 1);
   saveToStorage();
   renderAll();
@@ -2127,7 +2134,7 @@ function renderHistory() {
       <td>${num(r['PURCHASE PRICE (INR)']) ? fmtInr(num(r['PURCHASE PRICE (INR)'])) : '—'}</td>
       <td>${histEditMode ? `<input type="date" data-field="SELL DATE" class="edit-input" value="${sellDateVal}" style="min-width:130px">` : sellDateVal}</td>
       <td>${histEditMode ? `<input type="number" data-field="SELL PRICE (EURO)" class="edit-input" value="${num(r['SELL PRICE (EURO)'])}" step="0.00001">` : (num(r['SELL PRICE (EURO)']) ? fmtEur(num(r['SELL PRICE (EURO)'])) : '—')}</td>
-      <td>${sellRate ? fmt(sellRate) : '—'}</td>
+      <td>${histEditMode ? `<input type="number" data-field="SELL EXCHANGE RATE (EURO>INR)" class="edit-input" value="${sellRate || ''}" step="0.00001">` : (sellRate ? fmt(sellRate) : '—')}</td>
       <td>${histEditMode ? `<input type="number" data-field="SELL PRICE (INR)" class="edit-input" value="${num(r['SELL PRICE (INR)'])}" step="0.01">` : (num(r['SELL PRICE (INR)']) ? fmtInr(num(r['SELL PRICE (INR)'])) : '—')}</td>
       <td>${histEditMode ? `<input type="number" data-field="SELL QUANTITY" class="edit-input" value="${num(r['SELL QUANTITY'])}" step="0.000001">` : fmt(num(r['SELL QUANTITY']), 6)}</td>
       <td>${fmtInr(num(r['TOTAL SELL PRICE (INR)']))}</td>
