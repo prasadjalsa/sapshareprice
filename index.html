@@ -406,12 +406,14 @@
         <span id="hist-toggle-icon" style="font-size:16px;color:var(--muted);margin-left:6px">▸</span>
       </h2>
       <div class="actions filter-bar">
-        <input type="text" id="hist-search" placeholder="Search..." oninput="renderHistory()">
-        <select id="hist-filter" onchange="renderHistory()">
+        <input type="text" id="hist-search" placeholder="Search..." oninput="histPage=0;renderHistory()">
+        <select id="hist-filter" onchange="histPage=0;renderHistory()">
           <option value="">All types</option>
           <option value="Short Term Capital Gain">STCG</option>
           <option value="Long Term Capital Gain">LTCG</option>
         </select>
+        <input type="date" id="hist-sell-from" placeholder="Sell from" onchange="histPage=0;renderHistory()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:12px">
+        <input type="date" id="hist-sell-to"   placeholder="Sell to"   onchange="histPage=0;renderHistory()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:12px">
         <span class="tag" id="hist-count">0 rows</span>
         <button id="hist-edit-edit-btn"   onclick="toggleHistEdit()" class="btn secondary" style="font-size:12px;padding:5px 12px">✎ Edit</button>
         <button id="hist-edit-save-btn"   onclick="saveHistEdits()"  class="btn green"     style="font-size:12px;padding:5px 12px;display:none">✔ Save All</button>
@@ -424,13 +426,14 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Acq. Date</th>
+            <th onclick="sortHist('acq')" style="cursor:pointer;user-select:none">Acq. Date <span id="sh-hist-acq"></span></th>
             <th>Activity</th>
             <th>Plan Type</th>
             <th>Buy (EUR)</th>
             <th>Buy (INR)</th>
-            <th>Sell Date</th>
+            <th onclick="sortHist('sell')" style="cursor:pointer;user-select:none">Sell Date <span id="sh-hist-sell">▼</span></th>
             <th>Sell (EUR)</th>
+            <th>Sell Rate</th>
             <th>Sell (INR)</th>
             <th>Qty Sold</th>
             <th>Sell Value (INR)</th>
@@ -439,7 +442,7 @@
             <th>Type</th>
           </tr>
         </thead>
-        <tbody><tr><td colspan="14" class="empty">Load a CSV file</td></tr></tbody>
+        <tbody><tr><td colspan="15" class="empty">Load a CSV file</td></tr></tbody>
       </table>
     </div>
     <div class="pagination">
@@ -736,6 +739,8 @@ let heldPage = 0;
 let heldPageSize = 10;
 let heldSortCol = 'date';
 let heldSortAsc = false;
+let histSortCol = 'sell'; // 'acq' or 'sell'
+let histSortAsc = false;
 const PAGE_SIZE = 30;
 
 // ─── localStorage ─────────────────────────────────────────────────────────────
@@ -1905,6 +1910,13 @@ function drawSparkline(heldRows, priceInr, canvasId) {
   ctx.fillText((lastPct >= 0 ? '+' : '') + fmt(lastPct, 1) + '%', lx + (lx > W * 0.7 ? -5 : 5), ly - 4);
 }
 
+function sortHist(col) {
+  if (histSortCol === col) histSortAsc = !histSortAsc;
+  else { histSortCol = col; histSortAsc = false; }
+  histPage = 0;
+  renderHistory();
+}
+
 function changeHeldPage(dir) {
   heldPage += dir;
   renderHeld();
@@ -2063,6 +2075,24 @@ function renderHistory() {
     soldRows = soldRows.filter(({ r }) => r['CAPITAL GAIN TYPE'] === filter);
   }
 
+  // Sell date range filter
+  const sellFrom = document.getElementById('hist-sell-from')?.value;
+  const sellTo   = document.getElementById('hist-sell-to')?.value;
+  if (sellFrom) soldRows = soldRows.filter(({ r }) => r['SELL DATE'] >= sellFrom);
+  if (sellTo)   soldRows = soldRows.filter(({ r }) => r['SELL DATE'] <= sellTo + 'T23:59:59');
+
+  // Sort
+  const dir = histSortAsc ? 1 : -1;
+  soldRows.sort((a, b) => {
+    const keyA = histSortCol === 'acq' ? a.r['ACQUISITION DATE'] : (a.r['SELL DATE'] || '');
+    const keyB = histSortCol === 'acq' ? b.r['ACQUISITION DATE'] : (b.r['SELL DATE'] || '');
+    return dir * keyA.localeCompare(keyB);
+  });
+
+  // Update sort icons
+  document.getElementById('sh-hist-acq').textContent  = histSortCol === 'acq'  ? (histSortAsc ? ' ▲' : ' ▼') : '';
+  document.getElementById('sh-hist-sell').textContent = histSortCol === 'sell' ? (histSortAsc ? ' ▲' : ' ▼') : '';
+
   document.getElementById('hist-count').textContent = soldRows.length + ' rows';
 
   const total = soldRows.length;
@@ -2078,7 +2108,7 @@ function renderHistory() {
 
   const tbody = document.querySelector('#hist-table tbody');
   if (slice.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="14" class="empty">No sold transactions found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="15" class="empty">No sold transactions found</td></tr>';
     return;
   }
 
@@ -2087,6 +2117,7 @@ function renderHistory() {
     const gainType = r['CAPITAL GAIN TYPE'] || '';
     const isStcg = gainType.toLowerCase().includes('short');
     const sellDateVal = normalizeDate(r['SELL DATE']);
+    const sellRate = num(r['SELL EXCHANGE RATE (EURO>INR)']);
     return `<tr data-rowidx="${idx}">
       <td>${histPage * PAGE_SIZE + i + 1}</td>
       <td>${normalizeDate(r['ACQUISITION DATE'])}</td>
@@ -2096,6 +2127,7 @@ function renderHistory() {
       <td>${num(r['PURCHASE PRICE (INR)']) ? fmtInr(num(r['PURCHASE PRICE (INR)'])) : '—'}</td>
       <td>${histEditMode ? `<input type="date" data-field="SELL DATE" class="edit-input" value="${sellDateVal}" style="min-width:130px">` : sellDateVal}</td>
       <td>${histEditMode ? `<input type="number" data-field="SELL PRICE (EURO)" class="edit-input" value="${num(r['SELL PRICE (EURO)'])}" step="0.00001">` : (num(r['SELL PRICE (EURO)']) ? fmtEur(num(r['SELL PRICE (EURO)'])) : '—')}</td>
+      <td>${sellRate ? fmt(sellRate) : '—'}</td>
       <td>${histEditMode ? `<input type="number" data-field="SELL PRICE (INR)" class="edit-input" value="${num(r['SELL PRICE (INR)'])}" step="0.01">` : (num(r['SELL PRICE (INR)']) ? fmtInr(num(r['SELL PRICE (INR)'])) : '—')}</td>
       <td>${histEditMode ? `<input type="number" data-field="SELL QUANTITY" class="edit-input" value="${num(r['SELL QUANTITY'])}" step="0.000001">` : fmt(num(r['SELL QUANTITY']), 6)}</td>
       <td>${fmtInr(num(r['TOTAL SELL PRICE (INR)']))}</td>
