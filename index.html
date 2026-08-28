@@ -1790,10 +1790,15 @@ function renderKPIs() {
     </div>
     <div class="kpi">
       <div class="label">Total P&L (Realised + Unrealised)</div>
-      <div class="value ${totalPnL !== null ? colorClass(totalPnL + totalRealised) : colorClass(totalRealised)}">
+      <div class="value ${totalPnL !== null ? colorClass(totalPnL + totalRealised) : colorClass(totalRealised)}" style="font-size:18px">
         ${totalPnL !== null ? fmtInr(totalPnL + totalRealised) : fmtInr(totalRealised)}
       </div>
-      <div class="sub">${totalPnL !== null ? '' : 'Unrealised not included'}</div>
+      <div class="sub" style="margin-top:6px;line-height:1.7">
+        <span class="${colorClass(totalRealised)}">Realised: ${fmtInr(totalRealised)}</span>
+        <span style="color:var(--muted)"> (${soldRows.length} sells)</span><br>
+        <span class="${totalPnL !== null ? colorClass(totalPnL) : 'neu'}">Unrealised: ${totalPnL !== null ? fmtInr(totalPnL) : '—'}</span>
+        <span style="color:var(--muted)"> (${heldRows.length} lots${pnlPct !== null ? ', ' + fmt(pnlPct,1) + '%' : ''})</span>
+      </div>
     </div>
   `;
   renderSellTargetTile();
