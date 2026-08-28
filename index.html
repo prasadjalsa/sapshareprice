@@ -395,8 +395,8 @@
     </div>
   </div>
 
-  <!-- Realised / Total P&L summary -->
-  <div class="kpis" id="kpis-summary" style="margin-bottom:20px"></div>
+  <!-- Total P&L summary — full width -->
+  <div id="kpis-summary" style="margin-bottom:20px"></div>
 
   <!-- Transaction history -->
   <div class="section">
@@ -1783,21 +1783,24 @@ function renderKPIs() {
   `;
 
   document.getElementById('kpis-summary').innerHTML = `
-    <div class="kpi">
-      <div class="label">Realised Capital Gain</div>
-      <div class="value ${colorClass(totalRealised)}">${fmtInr(totalRealised)}</div>
-      <div class="sub">${soldRows.length} sell transactions</div>
-    </div>
-    <div class="kpi">
-      <div class="label">Total P&L (Realised + Unrealised)</div>
-      <div class="value ${totalPnL !== null ? colorClass(totalPnL + totalRealised) : colorClass(totalRealised)}" style="font-size:18px">
-        ${totalPnL !== null ? fmtInr(totalPnL + totalRealised) : fmtInr(totalRealised)}
+    <div class="kpi" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px">
+      <div>
+        <div class="label">Total P&L (Realised + Unrealised)</div>
+        <div class="value ${totalPnL !== null ? colorClass(totalPnL + totalRealised) : colorClass(totalRealised)}" style="font-size:26px">
+          ${totalPnL !== null ? fmtInr(totalPnL + totalRealised) : fmtInr(totalRealised)}
+        </div>
       </div>
-      <div class="sub" style="margin-top:6px;line-height:1.7">
-        <span class="${colorClass(totalRealised)}">Realised: ${fmtInr(totalRealised)}</span>
-        <span style="color:var(--muted)"> (${soldRows.length} sells)</span><br>
-        <span class="${totalPnL !== null ? colorClass(totalPnL) : 'neu'}">Unrealised: ${totalPnL !== null ? fmtInr(totalPnL) : '—'}</span>
-        <span style="color:var(--muted)"> (${heldRows.length} lots${pnlPct !== null ? ', ' + fmt(pnlPct,1) + '%' : ''})</span>
+      <div style="display:flex;gap:40px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px">Realised</div>
+          <div class="value ${colorClass(totalRealised)}" style="font-size:20px">${fmtInr(totalRealised)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${soldRows.length} sell transactions</div>
+        </div>
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px">Unrealised</div>
+          <div class="value ${totalPnL !== null ? colorClass(totalPnL) : 'neu'}" style="font-size:20px">${totalPnL !== null ? fmtInr(totalPnL) : '—'}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${heldRows.length} lots held${pnlPct !== null ? ' · ' + fmt(pnlPct,1) + '%' : ''}</div>
+        </div>
       </div>
     </div>
   `;
