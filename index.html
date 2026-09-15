@@ -485,7 +485,7 @@
       <div><span style="color:var(--muted)">High</span> <strong id="trend-stat-high" style="color:var(--green)">—</strong></div>
       <div><span style="color:var(--muted)">Low</span>  <strong id="trend-stat-low" style="color:var(--red)">—</strong></div>
       <div><span style="color:var(--muted)">Prev Close</span> <strong id="trend-stat-prev">—</strong></div>
-      <div><span style="color:var(--muted)">Break-even</span> <strong id="trend-stat-be" style="color:#f59e0b">—</strong></div>
+      <div><span style="color:var(--muted)">Break-even</span> <strong id="trend-stat-be">—</strong></div>
       <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
         <span style="color:var(--muted);font-size:11px">Zoom:</span>
         <button onclick="zoomToWindow(30)"  id="zoom-btn-30"  style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;font-weight:600">30m</button>
@@ -2400,7 +2400,12 @@ function _openTrendModal() {
   document.getElementById('trend-stat-low').textContent  = dayLow  ? fmtEur(dayLow)  : '—';
   document.getElementById('trend-stat-prev').textContent = open    ? fmtEur(open)     : '—';
   const beEl = document.getElementById('trend-stat-be');
-  if (beEl) beEl.textContent = _beEur ? fmtEur(_beEur) : '—';
+  if (beEl) {
+    beEl.textContent = _beEur ? fmtEur(_beEur) : '—';
+    const curPrice = parseFloat(document.getElementById('currentPriceEur')?.value) || 0;
+    beEl.style.color = !_beEur || !curPrice ? ''
+      : curPrice >= _beEur ? 'var(--green)' : 'var(--red)';
+  }
 
   // Update sub heading
   const last = points[points.length - 1]?.p;
