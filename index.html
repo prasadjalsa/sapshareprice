@@ -1874,10 +1874,11 @@ function renderKPIs() {
         ${(() => {
           if (beEur === null || priceEur <= 0) return '';
           const diff = priceEur - beEur;
-          const cls = diff >= 0 ? 'pos' : 'neg';
+          const pct  = (diff / beEur) * 100;
+          const cls  = diff >= 0 ? 'pos' : 'neg';
           const arrow = diff >= 0 ? '▲' : '▼';
           const label = diff >= 0 ? ' above' : ' below';
-          return '<br><span class="' + cls + '">' + arrow + ' €' + fmt(Math.abs(diff)) + label + '</span>';
+          return '<br><span class="' + cls + '">' + arrow + ' €' + fmt(Math.abs(diff)) + label + ' (' + (pct >= 0 ? '+' : '') + fmt(pct, 2) + '%)</span>';
         })()}
       </div>
     </div>
@@ -2401,10 +2402,15 @@ function _openTrendModal() {
   document.getElementById('trend-stat-prev').textContent = open    ? fmtEur(open)     : '—';
   const beEl = document.getElementById('trend-stat-be');
   if (beEl) {
-    beEl.textContent = _beEur ? fmtEur(_beEur) : '—';
     const curPrice = parseFloat(document.getElementById('currentPriceEur')?.value) || 0;
-    beEl.style.color = !_beEur || !curPrice ? ''
-      : curPrice >= _beEur ? 'var(--green)' : 'var(--red)';
+    if (_beEur && curPrice) {
+      const pct = (curPrice - _beEur) / _beEur * 100;
+      beEl.textContent = `${fmtEur(_beEur)} (${pct >= 0 ? '+' : ''}${fmt(pct, 2)}%)`;
+      beEl.style.color = curPrice >= _beEur ? 'var(--green)' : 'var(--red)';
+    } else {
+      beEl.textContent = _beEur ? fmtEur(_beEur) : '—';
+      beEl.style.color = '';
+    }
   }
 
   // Update sub heading
