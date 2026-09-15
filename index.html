@@ -202,7 +202,7 @@
     <div class="kpi" onclick="openTrendChart()" style="cursor:pointer" title="Click to view today's SAP price trend">
       <div class="label">SAP Today <span style="font-size:10px;color:var(--accent)">↗</span></div>
       <div class="value neu" id="trend-tile-value" style="font-size:18px">—</div>
-      <div class="sub" id="trend-tile-sub">Loading…</div>
+      <div class="sub" id="trend-tile-sub">Refresh to load</div>
       <canvas id="trend-spark" height="40" style="width:100%;height:40px;display:block;margin-top:auto;padding-top:6px"></canvas>
     </div>
     <!-- EUR→INR 30-day tile — static -->
@@ -1354,10 +1354,31 @@ function updateMarketStateBadge(apiState) {
   if (!badge) return;
   if (_marketCountdownTimer) { clearInterval(_marketCountdownTimer); _marketCountdownTimer = null; }
 
+  // Store the last known apiState so the minute-timer can keep using it
+  // between refreshes (important for public holiday detection).
+  updateMarketStateBadge._lastApiState = apiState !== undefined
+    ? apiState
+    : (updateMarketStateBadge._lastApiState || null);
+
   function render() {
     const s = getXETRAState();
-    const isOpen       = s.isWeekday && s.mins >= s.open && s.mins < s.close;
-    const isPreMarket  = s.isWeekday && s.mins < s.open;
+    // Local CET/CEST calc: weekday 09:00–17:30
+    let isOpen      = s.isWeekday && s.mins >= s.open && s.mins < s.close;
+    let isPreMarket = s.isWeekday && s.mins < s.open;
+
+    // Yahoo's marketState is authoritative when available.
+    // It catches German public holidays that local calc can't know about.
+    const ys = updateMarketStateBadge._lastApiState;
+    if (ys === 'REGULAR') {
+      isOpen = true; isPreMarket = false;
+    } else if (ys === 'PRE') {
+      isOpen = false; isPreMarket = true;
+    } else if (ys === 'POST' || ys === 'CLOSED') {
+      // Yahoo says market is not in regular session — honour it even if
+      // local time says it should be open (e.g. German public holiday).
+      if (isOpen) { isOpen = false; isPreMarket = false; }
+    }
+    // If ys is null (no API data yet) we fall through to local calc above.
 
     let text, bg, title;
     if (isOpen) {
@@ -1563,8 +1584,29 @@ async function fetchLivePrices() {
       };
       localStorage.setItem(key, JSON.stringify(_trendData));
       requestAnimationFrame(() => { drawTrendSparkline(); updateTrendTile(); });
+    } else if (json.price && !_trendData) {
+      // Price fetched but no chart points yet — show price with a context message
+      const sub = document.getElementById('trend-tile-sub');
+      const val = document.getElementById('trend-tile-value');
+      if (val) { val.textContent = fmtEur(json.price); val.className = 'value neu'; }
+      if (sub) {
+        const s = getXETRAState();
+        const marketOpen = s.isWeekday && s.mins >= s.open && s.mins < s.close;
+        const elapsed = s.mins - s.open;
+        sub.textContent = marketOpen && elapsed < 30
+          ? `Market just opened · chart populating (${elapsed}m in)`
+          : marketOpen
+          ? 'Market open · no chart data yet — refresh to retry'
+          : 'Chart data not yet available';
+      }
     }
-  } catch (e) { errors.push('SAP price fetch failed — deploy worker.js or run server.py'); }
+  } catch (e) {
+    errors.push('SAP price fetch failed — deploy worker.js or run server.py');
+    if (!_trendData) {
+      const sub = document.getElementById('trend-tile-sub');
+      if (sub) sub.textContent = 'No data — check connection or run server.py';
+    }
+  }
 
   // Call 2: EUR→INR live rate (always fresh, no cache)
   try {
@@ -1749,10 +1791,10 @@ function renderKPIs() {
   document.getElementById('kpis').innerHTML = `
     <div class="kpi">
       <div class="label">Shares Held</div>
-      <div class="value" style="font-size:16px">${fmt(totalQtyHeld, 4)}</div>
+      <div class="value" style="font-size:16px">${fmt(totalQtyHeld, 6)}</div>
       <div class="sub">
-        Own SAP: <strong>${fmt(ownSapQty, 4)}</strong><br>
-        Move SAP: <strong>${fmt(moveSapQty, 4)}</strong>
+        Own SAP: <strong>${fmt(ownSapQty, 6)}</strong><br>
+        Move SAP: <strong>${fmt(moveSapQty, 6)}</strong>
       </div>
     </div>
     <div class="kpi">
@@ -2468,6 +2510,43 @@ function _redrawTrendModal() {
   ctx.fillStyle = prices[prices.length - 1] >= base ? '#16a34a' : '#dc2626';
   ctx.fill();
 
+  // Hover crosshair
+  if (_trendHoverMs) {
+    const hPt = points.find(p => p.t === _trendHoverMs);
+    if (hPt) {
+      const hx = toX(hPt.t);
+      const hy = toY(hPt.p);
+      // Vertical + horizontal lines
+      ctx.save();
+      ctx.strokeStyle = 'rgba(100,100,100,0.5)';
+      ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(hx, PAD.top); ctx.lineTo(hx, PAD.top + cH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(PAD.left, hy); ctx.lineTo(PAD.left + cW, hy); ctx.stroke();
+      ctx.setLineDash([]);
+      // Dot at hovered point
+      ctx.beginPath(); ctx.arc(hx, hy, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = hPt.p >= base ? '#16a34a' : '#dc2626'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+      // Tooltip
+      const cetT  = new Date(hPt.t + getGermanyCETOffset(new Date(hPt.t)) * 3600000);
+      const hh    = String(cetT.getUTCHours()).padStart(2,'0');
+      const mm    = String(cetT.getUTCMinutes()).padStart(2,'0');
+      const label = `${hh}:${mm} CET  €${fmt(hPt.p, 2)}`;
+      ctx.font = 'bold 12px system-ui';
+      const tw = ctx.measureText(label).width;
+      const bx = hx + 10 + tw + 10 > W ? hx - tw - 16 : hx + 10;
+      const by = hy - 28 < PAD.top ? hy + 8 : hy - 28;
+      ctx.fillStyle = 'rgba(30,30,30,0.82)';
+      ctx.beginPath();
+      ctx.roundRect(bx - 6, by, tw + 12, 22, 4);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, bx, by + 15);
+      ctx.restore();
+    }
+  }
+
 }
 
 
@@ -2483,6 +2562,7 @@ let _trendDragStart = null; // { x, viewStart, viewEnd } for panning
 let _trendPinchDist = null; // last pinch distance for mobile zoom
 let _trendLastTap   = 0;    // timestamp of last tap for double-tap detection
 let _trendShowDots  = true; // toggle candle dots on/off
+let _trendHoverMs   = null; // hovered timestamp for crosshair (null = no hover)
 
 function _trendSessionBounds() {
   if (!_trendData?.points?.length) return { sessionOpen: 0, sessionClose: 0 };
@@ -2568,7 +2648,7 @@ function _attachTrendCanvasEvents() {
   canvas.addEventListener('mousedown',   _onTrendMouseDown);
   canvas.addEventListener('mousemove',   _onTrendMouseMove);
   canvas.addEventListener('mouseup',     _onTrendMouseUp);
-  canvas.addEventListener('mouseleave',  _onTrendMouseUp);
+  canvas.addEventListener('mouseleave',  _onTrendMouseLeave);
   canvas.addEventListener('dblclick',    _onTrendDblClick);
   canvas.addEventListener('touchstart',  _onTrendTouchStart, { passive: false });
   canvas.addEventListener('touchmove',   _onTrendTouchMove,  { passive: false });
@@ -2582,7 +2662,7 @@ function _detachTrendCanvasEvents() {
   canvas.removeEventListener('mousedown',  _onTrendMouseDown);
   canvas.removeEventListener('mousemove',  _onTrendMouseMove);
   canvas.removeEventListener('mouseup',    _onTrendMouseUp);
-  canvas.removeEventListener('mouseleave', _onTrendMouseUp);
+  canvas.removeEventListener('mouseleave', _onTrendMouseLeave);
   canvas.removeEventListener('dblclick',   _onTrendDblClick);
   canvas.removeEventListener('touchstart', _onTrendTouchStart);
   canvas.removeEventListener('touchmove',  _onTrendTouchMove);
@@ -2613,22 +2693,41 @@ function _onTrendMouseDown(e) {
 }
 
 function _onTrendMouseMove(e) {
-  if (!_trendDragStart) return;
-  const canvas  = e.currentTarget;
-  const PAD_L   = 70;
-  const cW      = canvas.offsetWidth - PAD_L - 20;
-  const viewLen = _trendDragStart.viewEnd - _trendDragStart.viewStart;
-  const dx      = e.clientX - _trendDragStart.x;
-  const dtMs    = -(dx / cW) * viewLen;
-  _trendViewStart = Math.round(_trendDragStart.viewStart + dtMs);
-  _trendViewEnd   = Math.round(_trendDragStart.viewEnd   + dtMs);
-  _clampView();
+  const canvas = e.currentTarget;
+  const PAD_L  = 70;
+  const cW     = canvas.offsetWidth - PAD_L - 20;
+  if (_trendDragStart) {
+    // Panning — update view
+    const viewLen = _trendDragStart.viewEnd - _trendDragStart.viewStart;
+    const dx      = e.clientX - _trendDragStart.x;
+    const dtMs    = -(dx / cW) * viewLen;
+    _trendViewStart = Math.round(_trendDragStart.viewStart + dtMs);
+    _trendViewEnd   = Math.round(_trendDragStart.viewEnd   + dtMs);
+    _clampView();
+    _trendHoverMs = null;
+  } else if (_trendViewStart && _trendData?.points?.length) {
+    // Hovering — map cursor X to timestamp, find nearest data point
+    const xRatio  = Math.max(0, Math.min(1, (e.offsetX - PAD_L) / cW));
+    const viewLen = _trendViewEnd - _trendViewStart;
+    const hoverT  = _trendViewStart + xRatio * viewLen;
+    // Snap to nearest data point
+    let nearest = _trendData.points[0];
+    for (const pt of _trendData.points) {
+      if (Math.abs(pt.t - hoverT) < Math.abs(nearest.t - hoverT)) nearest = pt;
+    }
+    _trendHoverMs = nearest.t;
+  }
   _redrawTrendModal();
 }
 
 function _onTrendMouseUp(e) {
   _trendDragStart = null;
   e.currentTarget.style.cursor = 'default';
+}
+
+function _onTrendMouseLeave() {
+  _trendHoverMs = null;
+  _redrawTrendModal();
 }
 
 function _onTrendTouchStart(e) {
@@ -2804,6 +2903,8 @@ function drawEurInrSparkline() {
   ctx.fill();
 }
 
+let _eurInrHoverIdx = null;
+
 function openEurInrChart() {
   if (!_eurInrHistory) { fetchEurInrHistory().then(() => _drawEurInrModal()); return; }
   _drawEurInrModal();
@@ -2818,8 +2919,11 @@ function _drawEurInrModal() {
   const first = rates[0];
   const change    = last - first;
   const changePct = (change / first) * 100;
-  document.getElementById('eurinr-modal-sub').textContent =
-    `Current: ₹${fmt(last, 4)} · ${change >= 0 ? '+' : ''}${fmt(change, 4)} (${changePct >= 0 ? '+' : ''}${fmt(changePct, 2)}%) over ${dates.length} working days`;
+  // Update sub-text: show hovered day if hovering, otherwise 30d summary
+  const hIdx = _eurInrHoverIdx;
+  document.getElementById('eurinr-modal-sub').textContent = hIdx !== null
+    ? `${dates[hIdx]}  ₹${fmt(rates[hIdx], 4)}`
+    : `Current: ₹${fmt(last, 4)} · ${change >= 0 ? '+' : ''}${fmt(change, 4)} (${changePct >= 0 ? '+' : ''}${fmt(changePct, 2)}%) over ${dates.length} working days`;
 
   const canvas = document.getElementById('eurinr-canvas');
   const dpr = window.devicePixelRatio || 1;
@@ -2889,12 +2993,51 @@ function _drawEurInrModal() {
     ctx.translate(toX(i), PAD.top + cH + 10);
     ctx.rotate(-Math.PI / 4);
     ctx.textAlign = 'right';
-    ctx.fillText(d.slice(5), 0, 0); // show MM-DD
+    ctx.fillText(d.slice(5), 0, 0);
     ctx.restore();
   });
+
+  // Hover crosshair
+  if (hIdx !== null && hIdx >= 0 && hIdx < rates.length) {
+    const hx = toX(hIdx);
+    const hy = toY(rates[hIdx]);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(100,100,100,0.5)';
+    ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(hx, PAD.top); ctx.lineTo(hx, PAD.top + cH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.left, hy); ctx.lineTo(PAD.left + cW, hy); ctx.stroke();
+    ctx.setLineDash([]);
+    // Highlighted dot
+    ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = rates[hIdx] >= first ? '#16a34a' : '#dc2626'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    // Tooltip
+    const label = `${dates[hIdx]}  ₹${fmt(rates[hIdx], 4)}`;
+    ctx.font = 'bold 12px system-ui';
+    const tw = ctx.measureText(label).width;
+    const bx = hx + 10 + tw + 10 > W ? hx - tw - 16 : hx + 10;
+    const by = hy - 28 < PAD.top ? hy + 8 : hy - 28;
+    ctx.fillStyle = 'rgba(30,30,30,0.82)';
+    ctx.beginPath(); ctx.roundRect(bx - 6, by, tw + 12, 22, 4); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+    ctx.fillText(label, bx, by + 15);
+    ctx.restore();
+  }
+
+  // Attach mouse events (idempotent via named handlers)
+  canvas.onmousemove = (e) => {
+    if (!_eurInrHistory) return;
+    const rect = canvas.getBoundingClientRect();
+    const rawX = (e.clientX - rect.left) * (canvas.width / rect.width / (window.devicePixelRatio || 1));
+    const idx  = Math.round((rawX - PAD.left) / cW * (_eurInrHistory.rates.length - 1));
+    const clamped = Math.max(0, Math.min(_eurInrHistory.rates.length - 1, idx));
+    if (_eurInrHoverIdx !== clamped) { _eurInrHoverIdx = clamped; _drawEurInrModal(); }
+  };
+  canvas.onmouseleave = () => { _eurInrHoverIdx = null; _drawEurInrModal(); };
 }
 
 function closeEurInrChart() {
+  _eurInrHoverIdx = null;
   document.getElementById('eurinr-modal').style.display = 'none';
 }
 
