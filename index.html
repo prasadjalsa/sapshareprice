@@ -2308,7 +2308,8 @@ function drawTrendSparkline() {
   const gtsRowS = rows.find(r => isHeld(r) && r['_gts_price']);
   const gtsEurS = gtsRowS ? num(gtsRowS['_gts_price']) : null;
   const within10S = v => v > 0 && Math.abs(v - priceAvgS) / priceAvgS <= 0.05;
-  const extraS  = [base, ...(within10S(_beEur) ? [_beEur] : []), ...(within10S(gtsEurS) ? [gtsEurS] : [])];
+  // Break-even always included in Y scale; GTS only within ±5% to avoid distortion
+  const extraS  = [base, ...(_beEur ? [_beEur] : []), ...(within10S(gtsEurS) ? [gtsEurS] : [])];
   const minV    = Math.min(...extraS, ...prices);
   const maxV    = Math.max(...extraS, ...prices);
   const range   = maxV - minV || 1;
@@ -2332,8 +2333,8 @@ function drawTrendSparkline() {
   ctx.beginPath(); ctx.moveTo(PAD, baseY); ctx.lineTo(W - PAD, baseY); ctx.stroke();
   ctx.setLineDash([]);
 
-  // Break-even line (orange) — sparkline
-  if (_beEur && within10S(_beEur)) {
+  // Break-even line (orange) — always shown in sparkline
+  if (_beEur) {
     ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1; ctx.setLineDash([3, 2]);
     ctx.beginPath(); ctx.moveTo(PAD, toY(_beEur)); ctx.lineTo(W - PAD, toY(_beEur)); ctx.stroke();
     ctx.setLineDash([]);
@@ -2466,9 +2467,9 @@ function _redrawTrendModal() {
   const gtsRow = rows.find(r => isHeld(r) && r['_gts_price']);
   const gtsEur = gtsRow ? num(gtsRow['_gts_price']) : null;
 
-  // Include BE and GTS in Y range only if within ±10% of avg price
+  // Break-even always included in Y range; GTS only within ±5% to avoid distortion
   const within10 = v => v > 0 && Math.abs(v - priceAvg) / priceAvg <= 0.05;
-  const extraPrices = [base, marketOpen, ...(within10(_beEur) ? [_beEur] : []), ...(within10(gtsEur) ? [gtsEur] : [])];
+  const extraPrices = [base, marketOpen, ...(_beEur ? [_beEur] : []), ...(within10(gtsEur) ? [gtsEur] : [])];
   const minV  = Math.min(...extraPrices, ...pricesToScale);
   const maxV  = Math.max(...extraPrices, ...prices);
   const range = maxV - minV || 0.1;
@@ -2555,8 +2556,8 @@ function _redrawTrendModal() {
     ctx.fillText('Open €' + fmt(marketOpen, 2), PAD.left + 4, openY - 3);
   }
 
-  // Break-even line (orange dashed) with label
-  if (_beEur && within10(_beEur)) {
+  // Break-even line (orange dashed) — always shown in modal chart
+  if (_beEur) {
     const beY = toY(_beEur);
     ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]);
     ctx.beginPath(); ctx.moveTo(PAD.left, beY); ctx.lineTo(PAD.left + cW, beY); ctx.stroke();
