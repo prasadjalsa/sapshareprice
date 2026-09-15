@@ -126,6 +126,12 @@
   </div>
 </header>
 
+<!-- Blackout period banner — dates hardcoded, shown automatically -->
+<div id="blackout-banner" style="display:none;background:#92400e;color:#fef3c7;padding:10px 24px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;justify-content:center;border-bottom:2px solid #b45309">
+  <span style="font-size:16px">🚫</span>
+  <span id="blackout-text"></span>
+</div>
+
 <div class="main">
 
   <!-- Top controls -->
@@ -731,6 +737,32 @@
 </div>
 
 <script>
+
+// ─── Trading Blackout Periods ─────────────────────────────────────────────────
+// SAP employee blackout periods — no trading allowed during these windows.
+// Add future quarters here as they are announced.
+const BLACKOUT_PERIODS = [
+  { quarter: 'Q1 2026', start: '2026-03-15', end: '2026-04-23' },
+  { quarter: 'Q2 2026', start: '2026-06-15', end: '2026-07-23' },
+  { quarter: 'Q3 2026', start: '2026-09-15', end: '2026-10-21' },
+];
+
+function checkBlackoutPeriod() {
+  const banner = document.getElementById('blackout-banner');
+  const text   = document.getElementById('blackout-text');
+  if (!banner || !text) return;
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD local
+  const active = BLACKOUT_PERIODS.find(p => today >= p.start && today <= p.end);
+  if (active) {
+    const endDate  = new Date(active.end);
+    const nowDate  = new Date(today);
+    const daysLeft = Math.round((endDate - nowDate) / 86400000);
+    text.textContent = `Trading Blackout Period — ${active.quarter} (${active.start} to ${active.end}) · ${daysLeft === 0 ? 'ends today' : daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + ' remaining'} · No SAP share purchases or sales allowed.`;
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+}
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let rows = [];          // all parsed CSV rows as objects
@@ -3554,6 +3586,7 @@ window.addEventListener('resize', () => { drawTrendSparkline(); });
 (function() {
   applyDarkPreference();
   updateMarketStateBadge();
+  checkBlackoutPeriod();
 
   // Restore last refresh timestamp
   const lastRefresh = localStorage.getItem('last_price_refresh');
