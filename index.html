@@ -485,6 +485,7 @@
       <div><span style="color:var(--muted)">High</span> <strong id="trend-stat-high" style="color:var(--green)">—</strong></div>
       <div><span style="color:var(--muted)">Low</span>  <strong id="trend-stat-low" style="color:var(--red)">—</strong></div>
       <div><span style="color:var(--muted)">Prev Close</span> <strong id="trend-stat-prev">—</strong></div>
+      <div><span style="color:var(--muted)">Break-even</span> <strong id="trend-stat-be" style="color:#f59e0b">—</strong></div>
       <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
         <span style="color:var(--muted);font-size:11px">Zoom:</span>
         <button onclick="zoomToWindow(30)"  id="zoom-btn-30"  style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;font-weight:600">30m</button>
@@ -2305,7 +2306,7 @@ function drawTrendSparkline() {
   const priceAvgS = prices.reduce((s,v) => s+v, 0) / (prices.length || 1);
   const gtsRowS = rows.find(r => isHeld(r) && r['_gts_price']);
   const gtsEurS = gtsRowS ? num(gtsRowS['_gts_price']) : null;
-  const within10S = v => v > 0 && Math.abs(v - priceAvgS) / priceAvgS <= 0.10;
+  const within10S = v => v > 0 && Math.abs(v - priceAvgS) / priceAvgS <= 0.05;
   const extraS  = [base, ...(within10S(_beEur) ? [_beEur] : []), ...(within10S(gtsEurS) ? [gtsEurS] : [])];
   const minV    = Math.min(...extraS, ...prices);
   const maxV    = Math.max(...extraS, ...prices);
@@ -2398,6 +2399,8 @@ function _openTrendModal() {
   document.getElementById('trend-stat-high').textContent = dayHigh ? fmtEur(dayHigh) : '—';
   document.getElementById('trend-stat-low').textContent  = dayLow  ? fmtEur(dayLow)  : '—';
   document.getElementById('trend-stat-prev').textContent = open    ? fmtEur(open)     : '—';
+  const beEl = document.getElementById('trend-stat-be');
+  if (beEl) beEl.textContent = _beEur ? fmtEur(_beEur) : '—';
 
   // Update sub heading
   const last = points[points.length - 1]?.p;
@@ -2453,7 +2456,7 @@ function _redrawTrendModal() {
   const gtsEur = gtsRow ? num(gtsRow['_gts_price']) : null;
 
   // Include BE and GTS in Y range only if within ±10% of avg price
-  const within10 = v => v > 0 && Math.abs(v - priceAvg) / priceAvg <= 0.10;
+  const within10 = v => v > 0 && Math.abs(v - priceAvg) / priceAvg <= 0.05;
   const extraPrices = [base, marketOpen, ...(within10(_beEur) ? [_beEur] : []), ...(within10(gtsEur) ? [gtsEur] : [])];
   const minV  = Math.min(...extraPrices, ...pricesToScale);
   const maxV  = Math.max(...extraPrices, ...prices);
