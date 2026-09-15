@@ -757,7 +757,7 @@ function checkBlackoutPeriod() {
     const endDate  = new Date(active.end);
     const nowDate  = new Date(today);
     const daysLeft = Math.round((endDate - nowDate) / 86400000);
-    text.textContent = `Trading Blackout Period — ${active.quarter} (${active.start} to ${active.end}) · ${daysLeft === 0 ? 'ends today' : daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + ' remaining'} · No SAP share purchases or sales allowed.`;
+    text.textContent = `Trading Blackout Period — ${active.quarter} (${active.start} to ${active.end}) · ${daysLeft === 0 ? 'ends today' : daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + ' remaining'} · SAP share sales are not allowed during this period.`;
     banner.style.display = 'flex';
   } else {
     banner.style.display = 'none';
