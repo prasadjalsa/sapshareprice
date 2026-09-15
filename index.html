@@ -1606,18 +1606,42 @@ async function fetchLivePrices() {
     // Merge intraday chart data into trend history
     if (json.points?.length) {
       const key          = TREND_KEY();
-      const stored       = JSON.parse(localStorage.getItem(key) || 'null');
-      const storedPoints = stored?.points || [];
-      const mergedMap    = new Map();
-      [...storedPoints, ...json.points].forEach(pt => mergedMap.set(pt.t, pt));
-      const sortedPoints = [...mergedMap.values()].sort((a, b) => a.t - b.t);
-      _trendData = {
-        ...json, points: sortedPoints,
-        dayHigh: (json.dayHigh && stored?.dayHigh) ? Math.max(json.dayHigh, stored.dayHigh) : (json.dayHigh || stored?.dayHigh || null),
-        dayLow:  (json.dayLow  && stored?.dayLow)  ? Math.min(json.dayLow,  stored.dayLow)  : (json.dayLow  || stored?.dayLow  || null),
-      };
-      localStorage.setItem(key, JSON.stringify(_trendData));
-      requestAnimationFrame(() => { drawTrendSparkline(); updateTrendTile(); });
+      // Compute today's CET session window to filter out stale candles from
+      // yesterday (Yahoo sometimes returns previous day's data on session open).
+      const nowMs         = Date.now();
+      const cetOff        = getGermanyCETOffset(new Date(nowMs)) * 3600000;
+      const cetNowMs      = nowMs + cetOff;
+      const cetMidnight   = cetNowMs - (cetNowMs % 86400000);
+      const todayOpenMs   = cetMidnight - cetOff + 9    * 3600000;
+      const todayCloseMs  = cetMidnight - cetOff + 17.5 * 3600000;
+      const todayPoints   = json.points.filter(p => p.t >= todayOpenMs && p.t <= todayCloseMs);
+
+      if (!todayPoints.length) {
+        // All returned candles are from a different day — skip update
+        if (!_trendData) {
+          const sub = document.getElementById('trend-tile-sub');
+          const val = document.getElementById('trend-tile-value');
+          if (json.price) {
+            if (val) { val.textContent = fmtEur(json.price); val.className = 'value neu'; }
+          }
+          if (sub) sub.textContent = 'Market open · waiting for today\'s first candle';
+        }
+      } else {
+        const stored       = JSON.parse(localStorage.getItem(key) || 'null');
+        // Also filter stored points to today's window (clears contamination from
+        // a previous bad fetch that may have stored yesterday's candles).
+        const storedPoints = (stored?.points || []).filter(p => p.t >= todayOpenMs && p.t <= todayCloseMs);
+        const mergedMap    = new Map();
+        [...storedPoints, ...todayPoints].forEach(pt => mergedMap.set(pt.t, pt));
+        const sortedPoints = [...mergedMap.values()].sort((a, b) => a.t - b.t);
+        _trendData = {
+          ...json, points: sortedPoints,
+          dayHigh: (json.dayHigh && stored?.dayHigh) ? Math.max(json.dayHigh, stored.dayHigh) : (json.dayHigh || stored?.dayHigh || null),
+          dayLow:  (json.dayLow  && stored?.dayLow)  ? Math.min(json.dayLow,  stored.dayLow)  : (json.dayLow  || stored?.dayLow  || null),
+        };
+        localStorage.setItem(key, JSON.stringify(_trendData));
+        requestAnimationFrame(() => { drawTrendSparkline(); updateTrendTile(); });
+      }
     } else if (json.price && !_trendData) {
       // Price fetched but no chart points yet — show price with a context message
       const sub = document.getElementById('trend-tile-sub');
@@ -3607,10 +3631,21 @@ window.addEventListener('resize', () => { drawTrendSparkline(); });
   document.getElementById('f-date').max = todayStr;
 
   // Restore today's trend data instantly from localStorage
+  // Filter points to today's CET session window in case a previous bad fetch
+  // stored yesterday's candles under today's key.
   const storedTrend = JSON.parse(localStorage.getItem(TREND_KEY()) || 'null');
   if (storedTrend?.points?.length) {
-    _trendData = storedTrend;
-    requestAnimationFrame(() => { drawTrendSparkline(); updateTrendTile(); });
+    const nowMs        = Date.now();
+    const cetOff       = getGermanyCETOffset(new Date(nowMs)) * 3600000;
+    const cetNowMs     = nowMs + cetOff;
+    const cetMidnight  = cetNowMs - (cetNowMs % 86400000);
+    const todayOpenMs  = cetMidnight - cetOff + 9    * 3600000;
+    const todayCloseMs = cetMidnight - cetOff + 17.5 * 3600000;
+    const cleanPoints  = storedTrend.points.filter(p => p.t >= todayOpenMs && p.t <= todayCloseMs);
+    if (cleanPoints.length) {
+      _trendData = { ...storedTrend, points: cleanPoints };
+      requestAnimationFrame(() => { drawTrendSparkline(); updateTrendTile(); });
+    }
   }
   // Clean up trend data from previous days
   Object.keys(localStorage)
